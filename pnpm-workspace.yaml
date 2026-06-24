@@ -1,0 +1,14 @@
+packages:
+  - '.'
+  - 'frontend'
+  - 'backend'
+  - 'import'
+supportedArchitectures:
+  os:
+    - linux
+    - windows
+  cpu:
+    - x64
+    - arm64
+  libc:
+    - glibc

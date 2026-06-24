@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --font-nunito: "Nunito Sans", sans-serif;
+  --font-source: "Source Sans Pro", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  
+  --color-cream: #FFFDF0;
+  --color-black: #0A0A08;
+  --color-yellow: #FFF000;
+  --color-dark-purple: #1a082a;
+  --color-dark-purple-light: #2d1345;
+}
+
+@layer base {
+  html {
+    @apply antialiased scroll-smooth;
+  }
+  
+  body {
+    @apply bg-dark-purple text-cream font-nunito selection:bg-yellow selection:text-black;
+  }
+
+  /* Hide scrollbar for clean app-like feel */
+  ::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

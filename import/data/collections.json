@@ -1,0 +1,15 @@
+[
+  { "code": "ob", "slug": "only-believe", "name": "Only Believe", "language": "English", "expectedCount": 222, "order": 1 },
+  { "code": "cs", "slug": "crois-seulement", "name": "Crois Seulement", "language": "French", "expectedCount": 226, "order": 2 },
+  { "code": "hos", "slug": "hosanna", "name": "Hosanna", "language": "English", "expectedCount": 247, "order": 3 },
+  { "code": "ac", "slug": "autres-cantiques", "name": "Autres Cantiques", "language": "French", "expectedCount": 214, "order": 4 },
+  { "code": "cc", "slug": "collection-des-cantiques", "name": "Collection des Cantiques", "language": "French", "expectedCount": 511, "order": 5 },
+  { "code": "cv", "slug": "chant-de-victoire", "name": "Chant de Victoire", "language": "French", "expectedCount": 324, "order": 6 },
+  { "code": "nm", "slug": "nyimbo-za-mungu", "name": "Nyimbo za Mungu", "language": "Kiswahili", "expectedCount": 327, "order": 7 },
+  { "code": "nw", "slug": "nyimbo-za-wokovu", "name": "Nyimbo za Wokovu", "language": "Kiswahili", "expectedCount": 300, "order": 8 },
+  { "code": "rs", "slug": "roc-seculaire", "name": "Roc Séculaire", "language": "French", "expectedCount": 347, "order": 9 },
+  { "code": "qtg", "slug": "quel-temps-glorieux", "name": "Quel Temps Glorieux", "language": "French", "expectedCount": 602, "order": 10 },
+  { "code": "sss", "slug": "sacred-songs-and-solos", "name": "Sacred Songs and Solos", "language": "English", "expectedCount": 1200, "order": 11 },
+  { "code": "ob2", "slug": "only-believe-2", "name": "Only Believe 2", "language": "English", "expectedCount": 1085, "order": 12 },
+  { "code": "rsp2", "slug": "roc-seculaire-paris", "name": "Roc Séculaire Paris", "language": "French", "expectedCount": 604, "order": 13 }
+]

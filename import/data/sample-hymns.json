@@ -1,0 +1,547 @@
+{
+  "version": "1.0.0",
+  "parsedAt": "2026-06-24T00:00:00.000Z",
+  "note": "Sample seed data. Replace with APK-extracted data via the import pipeline.",
+  "totalHymns": 78,
+  "collections": {
+    "only-believe": [
+      {
+        "songNumber": 1, "title": "Only Believe", "language": "English", "collection": "only-believe", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Fear not, little flock, from the cross to the throne,", "From death into life He went for His own;", "All power in earth, all power above,", "Is given to Him for the flock of His love."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Only believe, only believe,", "All things are possible, only believe;", "Only believe, only believe,", "All things are possible, only believe."] },
+          { "type": "verse", "label": "Verse 2", "lines": ["Fear not, little flock, He goeth ahead,", "Your Shepherd selecteth the path you must tread;", "The waters of Marah He'll sweeten for thee,", "He drank all the bitter in Gethsemane."] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Blessed Assurance", "language": "English", "collection": "only-believe", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Blessed assurance, Jesus is mine!", "O what a foretaste of glory divine!", "Heir of salvation, purchase of God,", "Born of His Spirit, washed in His blood."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["This is my story, this is my song,", "Praising my Savior all the day long;", "This is my story, this is my song,", "Praising my Savior all the day long."] },
+          { "type": "verse", "label": "Verse 2", "lines": ["Perfect submission, perfect delight,", "Visions of rapture now burst on my sight;", "Angels descending, bring from above", "Echoes of mercy, whispers of love."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Amazing Grace", "language": "English", "collection": "only-believe", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Amazing grace! How sweet the sound", "That saved a wretch like me!", "I once was lost, but now am found,", "Was blind, but now I see."] },
+          { "type": "verse", "label": "Verse 2", "lines": ["'Twas grace that taught my heart to fear,", "And grace my fears relieved;", "How precious did that grace appear", "The hour I first believed."] },
+          { "type": "verse", "label": "Verse 3", "lines": ["Through many dangers, toils and snares,", "I have already come;", "'Tis grace hath brought me safe thus far,", "And grace will lead me home."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "What a Friend We Have in Jesus", "language": "English", "collection": "only-believe", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["What a friend we have in Jesus,", "All our sins and griefs to bear!", "What a privilege to carry", "Everything to God in prayer!"] },
+          { "type": "chorus", "label": "Chorus", "lines": ["O what peace we often forfeit,", "O what needless pain we bear,", "All because we do not carry", "Everything to God in prayer!"] },
+          { "type": "verse", "label": "Verse 2", "lines": ["Have we trials and temptations?", "Is there trouble anywhere?", "We should never be discouraged,", "Take it to the Lord in prayer."] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "How Great Thou Art", "language": "English", "collection": "only-believe", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["O Lord my God, when I in awesome wonder,", "Consider all the worlds Thy hands have made,", "I see the stars, I hear the rolling thunder,", "Thy power throughout the universe displayed."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Then sings my soul, my Saviour God, to Thee,", "How great Thou art! How great Thou art!", "Then sings my soul, my Saviour God, to Thee,", "How great Thou art! How great Thou art!"] },
+          { "type": "verse", "label": "Verse 2", "lines": ["And when I think that God, His Son not sparing,", "Sent Him to die, I scarce can take it in;", "That on the cross, my burden gladly bearing,", "He bled and died to take away my sin."] }
+        ]
+      },
+      {
+        "songNumber": 6, "title": "Count Your Blessings", "language": "English", "collection": "only-believe", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["When upon life's billows you are tempest-tossed,", "When you are discouraged, thinking all is lost,", "Count your many blessings, name them one by one,", "And it will surprise you what the Lord hath done."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Count your blessings, name them one by one,", "Count your blessings, see what God hath done!", "Count your blessings, name them one by one,", "Count your many blessings, see what God hath done."] }
+        ]
+      }
+    ],
+    "crois-seulement": [
+      {
+        "songNumber": 1, "title": "Crois Seulement", "language": "French", "collection": "crois-seulement", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Ne crains pas, petit troupeau, de la croix au trône,", "De la mort à la vie Il est allé pour les siens;", "Toute puissance en terre, toute puissance au ciel,", "Lui est donnée pour le troupeau de Son amour."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Crois seulement, crois seulement,", "Toutes choses sont possibles, crois seulement;", "Crois seulement, crois seulement,", "Toutes choses sont possibles, crois seulement."] },
+          { "type": "verse", "label": "Verset 2", "lines": ["Ne crains pas, petit troupeau, Il va en avant,", "Ton Berger choisit le chemin que tu dois suivre;", "Les eaux de Mara Il les adoucira pour toi,", "Il but toute l'amertume à Gethsémané."] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Quelle Assurance", "language": "French", "collection": "crois-seulement", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Quelle assurance, Jésus est à moi!", "Quel avant-goût de la gloire divine!", "Héritier du salut, racheté par Dieu,", "Né de Son Esprit, lavé dans Son sang."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["C'est mon histoire, c'est mon cantique,", "Louant mon Sauveur tout le long du jour;", "C'est mon histoire, c'est mon cantique,", "Louant mon Sauveur tout le long du jour."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Grâce Infinie", "language": "French", "collection": "crois-seulement", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Grâce infinie! Quel doux son", "Qui sauva un misérable comme moi!", "J'étais perdu, mais maintenant je suis trouvé,", "J'étais aveugle, mais maintenant je vois."] },
+          { "type": "verse", "label": "Verset 2", "lines": ["C'est la grâce qui a enseigné à mon cœur la crainte,", "Et la grâce a soulagé mes craintes;", "Comme cette grâce m'a semblé précieuse", "À l'heure où j'ai cru pour la première fois."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Quel Ami Fidèle", "language": "French", "collection": "crois-seulement", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Quel ami fidèle et tendre", "Nous avons en Jésus!", "Du Père, il peut nous défendre;", "En Lui, que nos cœurs s'unissent."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Quelle paix nous abandonnons,", "Quelles douleurs inutiles nous portons,", "Tout simplement parce que nous ne portons pas", "Tout à Dieu dans la prière!"] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Seigneur, Tu Es Grand", "language": "French", "collection": "crois-seulement", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Ô Seigneur mon Dieu, en contemplant avec émerveillement,", "Tout ce que Tes mains ont créé,", "Je vois les étoiles, j'entends le tonnerre,", "Ta puissance manifestée dans l'univers."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Alors mon âme chante, ô Dieu Sauveur, à Toi,", "Que Tu es grand! Que Tu es grand!", "Alors mon âme chante, ô Dieu Sauveur, à Toi,", "Que Tu es grand! Que Tu es grand!"] }
+        ]
+      },
+      {
+        "songNumber": 6, "title": "Il Veille Sur Nous", "language": "French", "collection": "crois-seulement", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Dans les bras de Jésus je repose,", "En sécurité, en sécurité;", "Sa bonté me soutient sur la route,", "En sécurité, en sécurité."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Dans les bras de Jésus je repose,", "En sécurité sur Sa poitrine;", "Là où nul dommage ne peut m'atteindre,", "Dans les bras de Jésus je repose."] }
+        ]
+      }
+    ],
+    "hosanna": [
+      {
+        "songNumber": 1, "title": "Hosanna", "language": "English", "collection": "hosanna", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["I see the King of glory", "Coming on the clouds with fire,", "The whole earth shakes,", "The whole earth shakes."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Hosanna, hosanna,", "Hosanna in the highest!", "Hosanna, hosanna,", "Hosanna in the highest!"] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Shout to the Lord", "language": "English", "collection": "hosanna", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["My Jesus, my Savior,", "Lord, there is none like You.", "All of my days I want to praise", "The wonders of Your mighty love."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Shout to the Lord, all the earth, let us sing,", "Power and majesty, praise to the King;", "Mountains bow down and the seas will roar", "At the sound of Your name."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Here I Am to Worship", "language": "English", "collection": "hosanna", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Light of the world,", "You stepped down into darkness,", "Opened my eyes, let me see.", "Beauty that made this heart adore You,", "Hope of a life spent with You."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Here I am to worship,", "Here I am to bow down,", "Here I am to say that You're my God.", "You're altogether lovely,", "Altogether worthy,", "Altogether wonderful to me."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Open the Eyes of My Heart", "language": "English", "collection": "hosanna", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Open the eyes of my heart, Lord,", "Open the eyes of my heart,", "I want to see You,", "I want to see You."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["To see You high and lifted up,", "Shining in the light of Your glory,", "Pour out Your power and love", "As we sing holy, holy, holy."] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Majesty", "language": "English", "collection": "hosanna", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Majesty, worship His majesty,", "Unto Jesus be all glory, honor, and praise.", "Majesty, kingdom authority,", "Flow from His throne unto His own,", "His anthem raise."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["So exalt, lift up on high the name of Jesus,", "Magnify, come glorify Christ Jesus, the King,", "Majesty, worship His majesty,", "Jesus who died, now glorified, King of all kings."] }
+        ]
+      },
+      {
+        "songNumber": 6, "title": "Lord, I Lift Your Name on High", "language": "English", "collection": "hosanna", "lyricsRaw": "",
+        "sections": [
+          { "type": "chorus", "label": "Chorus", "lines": ["Lord, I lift Your name on high,", "Lord, I love to sing Your praises,", "I'm so glad You're in my life,", "I'm so glad You came to save us."] },
+          { "type": "verse", "label": "Verse 1", "lines": ["You came from heaven to earth to show the way,", "From the earth to the cross, my debt to pay,", "From the cross to the grave, from the grave to the sky,", "Lord, I lift Your name on high!"] }
+        ]
+      }
+    ],
+    "autres-cantiques": [
+      {
+        "songNumber": 1, "title": "Sainte Cité", "language": "French", "collection": "autres-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Je verrai la sainte cité,", "Brillant de gloire,", "Là où les saints de Dieu demeurent,", "Dans la céleste victoire."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Gloire à Dieu dans les hauteurs,", "Paix sur la terre aux hommes de bonne volonté,", "Gloire à Dieu dans les hauteurs,", "À jamais loué soit-Il!"] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Cantique de Victoire", "language": "French", "collection": "autres-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Chantons la victoire du Christ ressuscité,", "Il a triomphé de la mort et du péché;", "Sa gloire rayonne sur tous Ses rachetés,", "Alléluia, Christ est vivant!"] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Alléluia! Alléluia!", "Christ a triomphé, Il est vivant!", "Alléluia! Alléluia!", "Pour toujours et à jamais!"] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Je Suis Racheté", "language": "French", "collection": "autres-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Je suis racheté par le sang de l'Agneau,", "Mon âme est sauvée par Sa grâce;", "Plus aucune condamnation pour moi désormais,", "Car je marche dans la lumière de Dieu."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Je suis racheté, oui racheté,", "Racheté par le précieux sang;", "Je suis racheté, oui racheté,", "Sa grâce me suffit toujours."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Marche en Avant", "language": "French", "collection": "autres-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Soldats du Christ, debout!", "Revêtez votre armure,", "Écoutez le clairon de Dieu,", "Il appelle à la victoire!"] },
+          { "type": "chorus", "label": "Refrain", "lines": ["En avant, en avant,", "Marche en avant, soldats chrétiens,", "En avant, en avant,", "À la victoire avec Christ!"] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Dieu Est Amour", "language": "French", "collection": "autres-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Dieu est amour, et ceux qui demeurent dans l'amour,", "Demeurent en Dieu et Dieu en eux;", "Son amour parfait chasse toute crainte,", "Et Son amour dure à jamais."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Dieu est amour, Dieu est amour,", "Louons Son saint nom à jamais;", "Dieu est amour, Dieu est amour,", "Son amour dure éternellement."] }
+        ]
+      },
+      {
+        "songNumber": 6, "title": "Viens Saint-Esprit", "language": "French", "collection": "autres-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Viens Saint-Esprit, descends sur nous,", "Allume en nous le feu de Ton amour;", "Remplis nos cœurs de Ta puissance,", "Et guide-nous vers Ton trône de grâce."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Viens, viens Saint-Esprit,", "Descends en nous aujourd'hui;", "Viens, viens Saint-Esprit,", "Remplis nos cœurs de Toi."] }
+        ]
+      }
+    ],
+    "collection-de-cantiques": [
+      {
+        "songNumber": 1, "title": "À Toi La Gloire", "language": "French", "collection": "collection-de-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["À toi la gloire, ô Ressuscité!", "À toi la victoire pour l'éternité!", "Brillant de lumière, l'ange est descendu,", "Il roule la pierre du tombeau vaincu."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["À toi la gloire, ô Ressuscité,", "À toi la victoire pour l'éternité!"] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Mon Berger", "language": "French", "collection": "collection-de-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["L'Éternel est mon berger; je ne manquerai de rien.", "Il me fait reposer dans de verts pâturages,", "Il me dirige près des eaux paisibles."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Mon berger est le Seigneur,", "Il pourvoit à tous mes besoins;", "Sa grâce et Sa bonté me suivent,", "Tous les jours de ma vie."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Louez le Seigneur", "language": "French", "collection": "collection-de-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Louez le Seigneur, ô vous toutes les nations!", "Célébrez-le, vous tous les peuples!", "Car Sa bonté envers nous est grande,", "Et la fidélité de l'Éternel dure à jamais."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Alléluia! Alléluia!", "Louez le Seigneur à jamais!", "Alléluia! Alléluia!", "Sa gloire dure éternellement!"] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Sanctus Dominus", "language": "French", "collection": "collection-de-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Saint, Saint, Saint est le Seigneur,", "Dieu tout-puissant!", "Les cieux et la terre sont remplis de Ta gloire,", "Hosanna au plus haut des cieux."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Saint, Saint, Saint,", "Le Seigneur des armées;", "Sa gloire remplit la terre,", "Hosanna à jamais!"] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Dieu Fidèle", "language": "French", "collection": "collection-de-cantiques", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Grande est Ta fidélité, ô Dieu mon Père,", "Il n'y a pas d'ombre de changement en Toi;", "Tu ne changes pas, Tes compassions ne défaillent pas,", "Comme Tu as été, Tu seras toujours."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Grande est Ta fidélité!", "Grande est Ta fidélité!", "Matin après matin, de nouvelles miséricordes je vois;", "Tout ce dont j'ai eu besoin, Ta main l'a fourni,", "Grande est Ta fidélité, Seigneur, envers moi!"] }
+        ]
+      }
+    ],
+    "chant-de-victoire": [
+      {
+        "songNumber": 1, "title": "Victoire en Jésus", "language": "French", "collection": "chant-de-victoire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["J'ai entendu un vieil, vieil histoire,", "Comment un Sauveur est venu du haut,", "Pour rendre libre ceux qui sont captifs,", "Et Il a promis la vie éternelle."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Ô victoire en Jésus, mon Sauveur pour toujours!", "Il me chercha et m'acheta avec Son sang rédimpteur;", "Il m'aima avant que je Le connusse,", "Et tout ma vie à Lui je dois;", "Ô victoire en Jésus, mon Sauveur pour toujours!"] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Plus Près de Toi", "language": "French", "collection": "chant-de-victoire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Plus près de Toi, Seigneur,", "Plus près de Toi!", "Même si c'est une croix", "Qui m'élève jusqu'à Toi;", "Mon chant est celui-là:", "Plus près de Toi!"] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Le Sang de Jésus", "language": "French", "collection": "chant-de-victoire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Le sang de Jésus Christ, Son Fils,", "Nous purifie de tout péché;", "Sa vertu n'est jamais épuisée,", "Il est vivant pour intercéder."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Il est vainqueur, il est vainqueur,", "Jésus-Christ est vainqueur!", "Il est vainqueur, il est vainqueur,", "Gloire à Son nom pour toujours!"] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Triomphe", "language": "French", "collection": "chant-de-victoire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Le Seigneur triomphe, il triomphe,", "En Lui nous sommes plus que vainqueurs;", "Par Sa mort et Sa résurrection,", "Il a vaincu tous nos ennemis."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Triomphe! Triomphe!", "En Jésus-Christ nous triomphons;", "Triomphe! Triomphe!", "Sa victoire est la nôtre à jamais!"] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Christ Ressuscité", "language": "French", "collection": "chant-de-victoire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Christ est ressuscité d'entre les morts!", "Triomphant sur la mort,", "Il a vaincu le tombeau,", "Et Il vit pour toujours."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Alléluia! Christ est ressuscité!", "Alléluia! Il vit pour toujours!", "Alléluia! La mort est vaincue!", "Alléluia! Alléluia!"] }
+        ]
+      }
+    ],
+    "nyimbo-za-mungu": [
+      {
+        "songNumber": 1, "title": "Mungu Ni Mwema", "language": "Kiswahili", "collection": "nyimbo-za-mungu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Mungu ni mwema, Mungu ni mwema,", "Mungu ni mwema kwangu mimi;", "Mungu ni mwema, Mungu ni mwema,", "Mungu ni mwema kwangu mimi."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Alikuja akanitoa,", "Kutoka katika kifungo cha dhambi;", "Alikuja akanitoa,", "Mungu ni mwema kwangu mimi."] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Bwana Ni Nguvu Zangu", "language": "Kiswahili", "collection": "nyimbo-za-mungu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Bwana ni nguvu zangu na wimbo wangu,", "Naye amekuwa wokovu wangu;", "Yeye ni Mungu wangu, nitamsifu,", "Mungu wa baba yangu, nitamtukuza."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Tazama nguvu za Bwana,", "Ni kubwa na za ajabu;", "Tazama nguvu za Bwana,", "Hazina na kudhoofika."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Sifa Kwa Mungu", "language": "Kiswahili", "collection": "nyimbo-za-mungu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Mpeni sifa Mungu mbinguni,", "Mpeni sifa mlinzi wa Israeli;", "Mpeni sifa Mungu wa nguvu,", "Milele na milele."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Sifa, sifa, sifa kwa Mungu,", "Milele milele sifa;", "Sifa, sifa, sifa kwa Mungu,", "Yeye anastahili sifa."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Yesu Ni Mwanga", "language": "Kiswahili", "collection": "nyimbo-za-mungu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Yesu ni mwanga wa ulimwengu,", "Anayemfuata hatakuwa gizani;", "Nuru Yake inaangaza njia yangu,", "Naifuata na furaha kubwa."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Yesu ni mwanga, mwanga wa ulimwengu,", "Nifuate Yeye daima;", "Yesu ni mwanga, mwanga wa ulimwengu,", "Katika nuru Yake ninatembea."] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Nakushukuru Mungu", "language": "Kiswahili", "collection": "nyimbo-za-mungu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Nakushukuru Mungu kwa kila kitu,", "Kwa uhai wangu na afya yangu;", "Kwa familia yangu na marafiki,", "Nakushukuru Mungu."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Asante, asante Bwana,", "Kwa neema Yako ya milele;", "Asante, asante Bwana,", "Unistahili sifa zote."] }
+        ]
+      },
+      {
+        "songNumber": 6, "title": "Mungu Wa Milele", "language": "Kiswahili", "collection": "nyimbo-za-mungu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Mungu wa milele na milele,", "Jina Lake liwe juu ya yote;", "Anatawala mbinguni na duniani,", "Nguvu Zake hazina mwisho."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Tukufu, tukufu, tukufu ni Bwana,", "Mungu Mwenyezi wa milele;", "Tukufu, tukufu, tukufu ni Bwana,", "Utawala Wake hauna mwisho."] }
+        ]
+      }
+    ],
+    "nyimbo-za-wokovu": [
+      {
+        "songNumber": 1, "title": "Yesu Ni Rafiki Yangu", "language": "Kiswahili", "collection": "nyimbo-za-wokovu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Yesu ni rafiki yangu,", "Anipenda, anijua,", "Wakati wa shida zangu,", "Yeye hunifariji."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Rafiki wa kweli, rafiki wa kweli,", "Yesu Kristo ni rafiki wa kweli,", "Rafiki wa kweli, rafiki wa kweli,", "Daima yu pamoja nami."] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Wokovu Wa Bwana", "language": "Kiswahili", "collection": "nyimbo-za-wokovu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Wokovu wa Bwana ni wa bure,", "Kwa kila mtu anayemwamini;", "Yeye alilipa bei ya dhambi,", "Kwa damu Yake ya thamani."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Nimeokolewa, nimeokolewa,", "Kwa neema ya Mungu nimeokolewa;", "Nimeokolewa, nimeokolewa,", "Nimeokolewa kwa damu ya Yesu."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Nakupenda Yesu", "language": "Kiswahili", "collection": "nyimbo-za-wokovu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Nakupenda Yesu kwa moyo wote,", "Maisha yangu yote ni yako,", "Umeniokolea dhambi zangu zote,", "Sasa niko huru kweli kweli."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Nakupenda, nakupenda Yesu,", "Unipenda, unipenda pia,", "Nakupenda, nakupenda Yesu,", "Milele na milele."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Damu Ya Yesu", "language": "Kiswahili", "collection": "nyimbo-za-wokovu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Damu ya Yesu inasafisha,", "Dhambi zote za mtu yeyote;", "Nguvu yake haijapungua,", "Yeye anaomba daima."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Damu ya Yesu, damu ya Yesu,", "Inasafisha nafsi yangu;", "Damu ya Yesu, damu ya Yesu,", "Inaniokolea dhambi zangu."] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Furahia Daima", "language": "Kiswahili", "collection": "nyimbo-za-wokovu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Furahia daima katika Bwana,", "Furaha yako ni nguvu zako,", "Hata wakati wa maumivu,", "Furahia katika Mungu wako."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Furahia, furahia katika Bwana,", "Furaha, furaha hii ni ya kweli,", "Furahia, furahia katika Bwana,", "Hii ndiyo nguvu yangu."] }
+        ]
+      },
+      {
+        "songNumber": 6, "title": "Kristo Amefufuka", "language": "Kiswahili", "collection": "nyimbo-za-wokovu", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Mstari 1", "lines": ["Kristo amefufuka sasa,", "Ushindi juu ya kifo;", "Ameshinda kaburi,", "Na anaishi milele."] },
+          { "type": "chorus", "label": "Kiitikio", "lines": ["Aleluya! Kristo amefufuka!", "Aleluya! Anaishi milele!", "Aleluya! Kifo kimeshindwa!", "Aleluya! Aleluya!"] }
+        ]
+      }
+    ],
+    "roc-seculaire": [
+      {
+        "songNumber": 1, "title": "Roc Séculaire", "language": "French", "collection": "roc-seculaire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Rocher du siècle, écarté pour moi,", "Que je me cache dans Toi;", "Que l'eau et le sang,", "De Ton côté percé qui coula,", "Soient pour le péché un double remède,", "Me purifiant de sa culpabilité et de sa puissance."] },
+          { "type": "verse", "label": "Verset 2", "lines": ["Les travaux de mes mains", "Ne peuvent accomplir les exigences de Ta loi;", "Si mon zèle ne connaissait pas de repos,", "Si mes larmes coulaient toujours,", "Tout cela ne pourrait pas pour le péché expier;", "Tu dois sauver, et Toi seul."] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "La Vieille Croix Rugueuse", "language": "French", "collection": "roc-seculaire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Sur une colline lointaine se dressait une vieille croix rugueuse,", "L'emblème de la souffrance et de la honte;", "Et j'aime cette vieille croix où les plus chers et les meilleurs", "Pour un monde de pécheurs perdus ont été sacrifiés."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Alors je chérirai la vieille croix rugueuse,", "Jusqu'à ce que mes trophées enfin je pose;", "Je m'accrocherai à la vieille croix rugueuse,", "Et l'échangerai un jour contre une couronne."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Demeure avec Moi", "language": "French", "collection": "roc-seculaire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Demeure avec moi; vite tombe le soir;", "L'obscurité s'approfondit; Seigneur, demeure avec moi!", "Quand d'autres aides défaillent et que les conforts fuient,", "Aide du sans-aide, ô demeure avec moi."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Saint, Saint, Saint", "language": "French", "collection": "roc-seculaire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Saint, Saint, Saint! Seigneur Dieu Tout-Puissant!", "Tôt le matin, notre chant s'élèvera vers Toi;", "Saint, Saint, Saint! Miséricordieux et puissant!", "Dieu en trois Personnes, bienheureuse Trinité!"] },
+          { "type": "verse", "label": "Verset 2", "lines": ["Saint, Saint, Saint! Bien que l'obscurité Te cache,", "Bien que l'oeil de l'homme pécheur Ta gloire ne puisse voir;", "Toi seul est saint; il n'est personne à côté de Toi,", "Parfait en puissance, en amour et en pureté."] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Il Va Bien Avec Mon Âme", "language": "French", "collection": "roc-seculaire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Quand la paix, comme une rivière, accompagne mon chemin,", "Quand les chagrins comme des vagues de mer déferlent;", "Quoique mon sort soit, Tu m'as appris à dire,", "Il va bien, il va bien avec mon âme."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Il va bien avec mon âme,", "Il va bien, il va bien avec mon âme."] }
+        ]
+      },
+      {
+        "songNumber": 6, "title": "Grande Est Ta Fidélité", "language": "French", "collection": "roc-seculaire", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Grande est Ta fidélité, ô Dieu mon Père,", "Il n'y a pas d'ombre de changement en Toi;", "Tu ne changes pas, Tes compassions ne défaillent pas,", "Comme Tu as été, Tu seras toujours."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Grande est Ta fidélité!", "Grande est Ta fidélité!", "Matin après matin, de nouvelles miséricordes je vois;", "Grande est Ta fidélité, Seigneur, envers moi!"] }
+        ]
+      }
+    ],
+    "quel-temps-glorieux": [
+      {
+        "songNumber": 1, "title": "Quel Temps Glorieux", "language": "French", "collection": "quel-temps-glorieux", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Quel temps glorieux ce sera,", "Quand nous verrons Jésus notre Roi;", "Quand Il reviendra dans la gloire,", "Pour nous emmener avec Lui."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Quel temps glorieux! Quel temps glorieux!", "Quand nous Le verrons face à face;", "Quel temps glorieux! Quel temps glorieux!", "Dans Sa présence pour toujours!"] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Il Reviendra", "language": "French", "collection": "quel-temps-glorieux", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Jésus reviendra, Il viendra bientôt,", "Avec gloire et splendeur depuis le ciel;", "Chaque oeil Le verra, chaque genou fléchira,", "À la venue de notre Roi."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Il reviendra, Il reviendra,", "Notre Roi Jésus reviendra;", "Il reviendra, Il reviendra,", "Gloire! Il reviendra!"] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "La Cité Céleste", "language": "French", "collection": "quel-temps-glorieux", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Je vais vers une cité dont Dieu est le constructeur,", "Dont les fondements sont éternels;", "Là où il n'y a ni deuil, ni pleurs, ni douleur,", "Mais la joie éternelle et la gloire."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["La cité céleste m'attend,", "Là où les saints de Dieu seront;", "La cité céleste m'attend,", "Je serai là bientôt."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Bientôt Le Matin", "language": "French", "collection": "quel-temps-glorieux", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Bientôt le matin, bientôt le matin,", "Quand viendra le jour de Sa venue;", "Bientôt le matin, bientôt le matin,", "Nous Le verrons dans Sa gloire."] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Là-Haut", "language": "French", "collection": "quel-temps-glorieux", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Là-haut dans la gloire avec Christ mon Sauveur,", "Loin de toute peine et de tout labeur;", "Là-haut dans Sa présence pour l'éternité,", "C'est là où je veux être."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Là-haut, là-haut, avec Jésus pour toujours;", "Là-haut, là-haut, dans Son éternel amour;", "Là-haut, là-haut, c'est ma demeure céleste,", "Là-haut avec Jésus."] }
+        ]
+      }
+    ],
+    "sacred-songs-and-solos": [
+      {
+        "songNumber": 1, "title": "Rock of Ages", "language": "English", "collection": "sacred-songs-and-solos", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Rock of Ages, cleft for me,", "Let me hide myself in Thee;", "Let the water and the blood,", "From Thy riven side which flowed,", "Be of sin the double cure,", "Cleanse me from its guilt and power."] },
+          { "type": "verse", "label": "Verse 2", "lines": ["Not the labors of my hands", "Can fulfill Thy law's demands;", "Could my zeal no respite know,", "Could my tears forever flow,", "All for sin could not atone;", "Thou must save, and Thou alone."] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "The Old Rugged Cross", "language": "English", "collection": "sacred-songs-and-solos", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["On a hill far away stood an old rugged cross,", "The emblem of suffering and shame;", "And I love that old cross where the dearest and best", "For a world of lost sinners was slain."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["So I'll cherish the old rugged cross,", "Till my trophies at last I lay down;", "I will cling to the old rugged cross,", "And exchange it some day for a crown."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Abide with Me", "language": "English", "collection": "sacred-songs-and-solos", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Abide with me; fast falls the eventide;", "The darkness deepens; Lord, with me abide!", "When other helpers fail and comforts flee,", "Help of the helpless, O abide with me."] },
+          { "type": "verse", "label": "Verse 2", "lines": ["Swift to its close ebbs out life's little day;", "Earth's joys grow dim; its glories pass away;", "Change and decay in all around I see;", "O Thou who changest not, abide with me."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Holy, Holy, Holy", "language": "English", "collection": "sacred-songs-and-solos", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Holy, Holy, Holy! Lord God Almighty!", "Early in the morning our song shall rise to Thee;", "Holy, Holy, Holy! Merciful and mighty!", "God in three Persons, blessèd Trinity!"] },
+          { "type": "verse", "label": "Verse 2", "lines": ["Holy, Holy, Holy! Though the darkness hide Thee,", "Though the eye of sinful man Thy glory may not see;", "Only Thou art holy; there is none beside Thee,", "Perfect in power, in love and purity."] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Great Is Thy Faithfulness", "language": "English", "collection": "sacred-songs-and-solos", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Great is Thy faithfulness, O God my Father,", "There is no shadow of turning with Thee;", "Thou changest not, Thy compassions, they fail not;", "As Thou hast been, Thou forever wilt be."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Great is Thy faithfulness!", "Great is Thy faithfulness!", "Morning by morning new mercies I see;", "All I have needed Thy hand hath provided,", "Great is Thy faithfulness, Lord, unto me!"] }
+        ]
+      },
+      {
+        "songNumber": 6, "title": "It Is Well with My Soul", "language": "English", "collection": "sacred-songs-and-solos", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["When peace, like a river, attendeth my way,", "When sorrows like sea billows roll;", "Whatever my lot, Thou hast taught me to say,", "It is well, it is well with my soul."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["It is well with my soul,", "It is well, it is well with my soul."] }
+        ]
+      }
+    ],
+    "only-believe-2": [
+      {
+        "songNumber": 1, "title": "Standing on the Promises", "language": "English", "collection": "only-believe-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["Standing on the promises of Christ my King,", "Through eternal ages let His praises ring;", "Glory in the highest, I will shout and sing,", "Standing on the promises of God."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Standing, standing,", "Standing on the promises of God my Savior;", "Standing, standing,", "I'm standing on the promises of God."] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Victory in Jesus", "language": "English", "collection": "only-believe-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["I heard an old, old story,", "How a Savior came from glory,", "How He gave His life on Calvary", "To save a wretch like me;"] },
+          { "type": "chorus", "label": "Chorus", "lines": ["O victory in Jesus,", "My Savior forever,", "He sought me and bought me", "With His redeeming blood;", "He loved me ere I knew Him,", "And all my love is due Him,", "He plunged me to victory,", "Beneath the cleansing flood."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "He Lives", "language": "English", "collection": "only-believe-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["I serve a risen Savior,", "He's in the world today;", "I know that He is living,", "Whatever men may say;"] },
+          { "type": "chorus", "label": "Chorus", "lines": ["He lives, He lives,", "Christ Jesus lives today!", "He walks with me and talks with me", "Along life's narrow way.", "He lives, He lives,", "Salvation to impart!", "You ask me how I know He lives?", "He lives within my heart!"] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Leaning on the Everlasting Arms", "language": "English", "collection": "only-believe-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["What a fellowship, what a joy divine,", "Leaning on the everlasting arms;", "What a blessedness, what a peace is mine,", "Leaning on the everlasting arms."] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Leaning, leaning,", "Safe and secure from all alarms;", "Leaning, leaning,", "Leaning on the everlasting arms."] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Trust and Obey", "language": "English", "collection": "only-believe-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verse 1", "lines": ["When we walk with the Lord", "In the light of His Word,", "What a glory He sheds on our way!"] },
+          { "type": "chorus", "label": "Chorus", "lines": ["Trust and obey,", "For there's no other way", "To be happy in Jesus,", "But to trust and obey."] }
+        ]
+      }
+    ],
+    "roc-seculaire-paris-2": [
+      {
+        "songNumber": 1, "title": "Près de Toi, Seigneur", "language": "French", "collection": "roc-seculaire-paris-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Près de Toi, Seigneur,", "Je veux être,", "Même si c'est une croix", "Qui m'élève jusqu'à Toi."] }
+        ]
+      },
+      {
+        "songNumber": 2, "title": "Dans Les Bras de Jésus", "language": "French", "collection": "roc-seculaire-paris-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Dans les bras de Jésus je repose,", "En sécurité, en sécurité;", "Sa bonté me soutient sur la route,", "En sécurité, en sécurité."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Dans les bras de Jésus je repose,", "En sécurité sur Sa poitrine;", "Là où nul dommage ne peut m'atteindre,", "Dans les bras de Jésus je repose."] }
+        ]
+      },
+      {
+        "songNumber": 3, "title": "Sûr et Certain", "language": "French", "collection": "roc-seculaire-paris-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Sûr et certain de la gloire à venir,", "En Jésus, en Jésus;", "Je marche vers la demeure éternelle,", "En Jésus, en Jésus."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["En Jésus, en Jésus,", "Je suis sûr et certain de la gloire;", "En Jésus, en Jésus,", "Sa victoire est aussi la mienne."] }
+        ]
+      },
+      {
+        "songNumber": 4, "title": "Je Veux Suivre Jésus", "language": "French", "collection": "roc-seculaire-paris-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Je veux suivre Jésus,", "Quoi qu'il m'en coûte;", "Sa grâce me suffit,", "Sur la route."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Je Le suivrai, je Le suivrai,", "Partout où Il me conduira;", "Je Le suivrai, je Le suivrai,", "Jusqu'à la maison du Père."] }
+        ]
+      },
+      {
+        "songNumber": 5, "title": "Grâce Merveilleuse", "language": "French", "collection": "roc-seculaire-paris-2", "lyricsRaw": "",
+        "sections": [
+          { "type": "verse", "label": "Verset 1", "lines": ["Grâce merveilleuse, grâce infinie,", "Comme les flots qui roulent à la mer;", "Elle me vient de Jésus,", "Elle me comble pour toujours."] },
+          { "type": "chorus", "label": "Refrain", "lines": ["Grâce merveilleuse, si puissante,", "Qui sauve et garde le pécheur;", "Grâce merveilleuse, si puissante,", "Elle m'a sauvé par Son amour!"] }
+        ]
+      }
+    ]
+  }
+}

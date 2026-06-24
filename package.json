@@ -1,0 +1,25 @@
+{
+  "name": "morija-cantiques-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=@morija/backend",
+    "dev:frontend": "npm run dev --workspace=@morija/frontend",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "db:generate": "npm run prisma:generate --workspace=@morija/backend",
+    "db:migrate": "npm run prisma:migrate --workspace=@morija/backend",
+    "db:seed": "npm run prisma:seed --workspace=@morija/backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.7.0",
+    "vite": "^8.1.0"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.3.0"
+  }
+}

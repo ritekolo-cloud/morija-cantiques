@@ -1,0 +1,33 @@
+{
+  "name": "@morija/import",
+  "version": "1.0.0",
+  "description": "APK extraction and hymn data import pipeline for Morija-Cantiques",
+  "type": "module",
+  "scripts": {
+    "extract": "ts-node --esm src/extractor.ts",
+    "parse": "ts-node --esm src/parser.ts",
+    "seed": "ts-node --esm src/seed.ts",
+    "validate": "ts-node --esm src/validate.ts",
+    "pipeline": "pnpm run extract && pnpm run parse && pnpm run seed && pnpm run validate",
+    "export-json": "ts-node --esm src/exporter.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "adm-zip": "^0.5.16",
+    "better-sqlite3": "^11.7.0",
+    "chalk": "^5.3.0",
+    "cli-progress": "^3.12.0",
+    "fast-xml-parser": "^4.5.3",
+    "glob": "^11.0.0",
+    "ora": "^8.1.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/cli-progress": "^3.11.6",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  }
+}

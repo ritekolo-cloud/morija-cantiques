@@ -1,0 +1,64 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Models
+model Language {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+
+  @@map("languages")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  color       String?
+  createdAt   DateTime @default(now())
+
+  @@map("categories")
+}
+
+model Collection {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  subtitle  String?
+  language  String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  songs Song[]
+
+  @@map("collections")
+}
+
+model Song {
+  id           String   @id @default(cuid())
+  songNumber   Int
+  title        String
+  lyrics       String   // JSON string of sections array
+  category     String?
+  keySignature String?
+  collectionId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  collection   Collection   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, songNumber])
+  @@index([title])
+  @@index([songNumber])
+  @@map("songs")
+}

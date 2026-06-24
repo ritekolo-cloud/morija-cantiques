@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL Database ──────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: morija_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Branham7
+      POSTGRES_DB: morija_cantiques
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - morija_net
+
+
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  morija_net:
+    driver: bridge
