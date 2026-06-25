@@ -1,10 +1,10 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+
 import { AppLayout } from './layouts/AppLayout';
 import { SplashPage } from './pages/SplashPage';
 import { HomePage } from './pages/HomePage';
 import { CollectionsPage } from './pages/CollectionsPage';
-
 import { CollectionPage } from './pages/CollectionPage';
 import { HymnDetailPage } from './pages/HymnDetailPage';
 import { SearchPage } from './pages/SearchPage';
@@ -13,9 +13,10 @@ import { FavoritesPage } from './pages/FavoritesPage';
 export function App() {
   return (
     <Routes>
+      {/* Splash */}
       <Route path="/" element={<SplashPage />} />
-      
-      {/* App Routes */}
+
+      {/* App Layout */}
       <Route path="/app" element={<AppLayout />}>
         <Route path="home" element={<HomePage />} />
         <Route path="collections" element={<CollectionsPage />} />
@@ -25,8 +26,15 @@ export function App() {
         <Route path="favorites" element={<FavoritesPage />} />
       </Route>
 
-      {/* 404 */}
-      <Route path="*" element={<div className="min-h-screen flex items-center justify-center">404 Not Found</div>} />
+      {/* fallback */}
+      <Route
+        path="*"
+        element={
+          <div style={{ padding: 40, fontSize: 24 }}>
+            404 Not Found
+          </div>
+        }
+      />
     </Routes>
   );
 }

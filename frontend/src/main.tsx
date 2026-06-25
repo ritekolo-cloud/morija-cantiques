@@ -4,8 +4,9 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
+
 import { App } from './App';
-import './index.css'; // Assume tailwind entry exists or will be created
+import './styles/index.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

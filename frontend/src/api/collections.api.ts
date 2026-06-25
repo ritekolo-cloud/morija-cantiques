@@ -2,13 +2,16 @@ import apiClient from './client';
 import type { Collection, ApiResponse } from '@/types';
 
 export async function getCollections(): Promise<ApiResponse<Collection[]>> {
-  return apiClient.get('/collections');
+  const res = await apiClient.get('/collections');
+  return res.data;
 }
 
 export async function getCollection(slug: string): Promise<ApiResponse<Collection>> {
-  return apiClient.get(`/collections/${slug}`);
+  const res = await apiClient.get(`/collections/${slug}`);
+  return res.data;
 }
 
 export async function getCollectionSongs(slug: string, params: any): Promise<ApiResponse<any>> {
-  return apiClient.get(`/collections/${slug}/songs`, { params });
+  const res = await apiClient.get(`/collections/${slug}/songs`, { params });
+  return res.data;
 }
