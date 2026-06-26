@@ -33,7 +33,10 @@ export async function searchSongs(params: SearchParams): Promise<PaginatedApiRes
 export async function getAdjacentSongs(id: string): Promise<ApiResponse<{
   prev: { id: string; songNumber: number; title: string } | null;
   next: { id: string; songNumber: number; title: string } | null;
-}>> {
-  return apiClient.get(`/songs/${id}/adjacent`);
+}>['data']> {
+  const { data } = await apiClient.get<ApiResponse<{
+    prev: { id: string; songNumber: number; title: string } | null;
+    next: { id: string; songNumber: number; title: string } | null;
+  }>>(`/songs/${id}/adjacent`);
+  return data.data;
 }
-

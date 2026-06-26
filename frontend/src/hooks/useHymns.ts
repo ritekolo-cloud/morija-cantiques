@@ -26,7 +26,7 @@ function unwrap<T>(res: any): T {
 export function useCollections() {
   return useQuery({
     queryKey: ['collections'],
-    queryFn: () => collectionsApi.getCollections().then(unwrap),
+    queryFn: () => collectionsApi.getCollections().then((res) => res.data),
     staleTime: 24 * 60 * 60 * 1000,
   });
 }
@@ -34,7 +34,7 @@ export function useCollections() {
 export function useCollection(slug: string) {
   return useQuery({
     queryKey: ['collections', slug],
-    queryFn: () => collectionsApi.getCollection(slug).then(unwrap),
+    queryFn: () => collectionsApi.getCollection(slug).then((res) => res.data),
     enabled: !!slug,
   });
 }
@@ -50,7 +50,7 @@ export function useCollectionSongs(
   return useQuery({
     queryKey: ['collections', slug, 'songs', page, limit],
     queryFn: () =>
-      collectionsApi.getCollectionSongs(slug, { page, limit }).then(unwrap),
+      collectionsApi.getCollectionSongs(slug, { page, limit }),
     enabled: !!slug,
   });
 }
@@ -61,14 +61,14 @@ export function useCollectionSongs(
 export function useHymns(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['hymns', params],
-    queryFn: () => songsApi.getAllSongs(params).then(unwrap),
+    queryFn: () => songsApi.getAllSongs(params),
   });
 }
 
 export function useHymn(id: string) {
   return useQuery({
     queryKey: ['hymn', id],
-    queryFn: () => songsApi.getSongById(id).then(unwrap),
+    queryFn: () => songsApi.getSongById(id),
     enabled: !!id,
   });
 }
@@ -80,7 +80,7 @@ export function useHymnByNumber(
   return useQuery({
     queryKey: ['hymn', collectionSlug, number],
     queryFn: () =>
-      songsApi.getSongByNumber(collectionSlug, number).then(unwrap),
+      songsApi.getSongByNumber(collectionSlug, number),
     enabled: !!collectionSlug && !!number,
   });
 }
@@ -95,7 +95,7 @@ export function useHymnSearch(
     queryFn: () =>
       songsApi
         .searchSongs({ q: query, scope: type, page, limit: 50 })
-        .then(unwrap),
+        .then((res) => res),
     enabled: query.length > 1,
   });
 }
@@ -103,7 +103,7 @@ export function useHymnSearch(
 export function useAdjacentHymns(id: string) {
   return useQuery({
     queryKey: ['hymn', id, 'adjacent'],
-    queryFn: () => songsApi.getAdjacentSongs(id).then(unwrap),
+    queryFn: () => songsApi.getAdjacentSongs(id),
     enabled: !!id,
   });
 }

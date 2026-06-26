@@ -1,63 +1,78 @@
-import { prisma } from '../../config/database';
 import { Prisma } from '@prisma/client';
-import type { CreateSongInput, UpdateSongInput } from './songs.validator';
+import { prisma } from '../../config/database';
+import { categoryCodeFromSlug, toSearchResult, toSong } from '../../utils/hymnMapper';
 
-const SONG_SELECT = {
-  id: true,
-  songNumber: true,
-  title: true,
-  lyrics: true,
+const HYMN_INCLUDE = {
   category: true,
-  keySignature: true,
-  language: true,
-  collectionId: true,
-  createdAt: true,
-  updatedAt: true,
-  collection: {
-    select: { id: true, slug: true, name: true, language: true },
-  },
 } as const;
+
+function collectionWhere(slugOrCode?: string): Prisma.HymnWhereInput {
+  if (!slugOrCode) return {};
+  const code = categoryCodeFromSlug(slugOrCode);
+  if (/^\d+$/.test(slugOrCode)) return { categoryId: Number(slugOrCode) };
+  return { categoryCode: code };
+}
 
 export async function findAll(params: {
   skip: number;
   limit: number;
   collectionId?: string;
   language?: string;
+  search?: string;
 }) {
-  const where: Prisma.SongWhereInput = {};
-  if (params.collectionId) where.collectionId = params.collectionId;
-  if (params.language) where.language = params.language;
+  const where: Prisma.HymnWhereInput = {
+    ...collectionWhere(params.collectionId),
+  };
 
-  const [songs, total] = await Promise.all([
-    prisma.song.findMany({
+  if (params.language) {
+    where.category = { language: params.language };
+  }
+
+  if (params.search) {
+    where.OR = [
+      { title: { contains: params.search, mode: 'insensitive' } },
+      { lyrics: { contains: params.search, mode: 'insensitive' } },
+      { number: params.search },
+    ];
+  }
+
+  const [hymns, total] = await Promise.all([
+    prisma.hymn.findMany({
       where,
-      select: SONG_SELECT,
-      orderBy: [{ collection: { order: 'asc' } }, { songNumber: 'asc' }],
+      include: HYMN_INCLUDE,
+      orderBy: [{ sourceOrder: 'asc' }],
       skip: params.skip,
       take: params.limit,
     }),
-    prisma.song.count({ where }),
+    prisma.hymn.count({ where }),
   ]);
 
-  return { songs, total };
+  return { songs: hymns.map(toSong), total };
 }
 
 export async function findById(id: string) {
-  return prisma.song.findUnique({ where: { id }, select: SONG_SELECT });
+  const hymnId = Number(id);
+  if (!Number.isInteger(hymnId)) return null;
+
+  const hymn = await prisma.hymn.findUnique({
+    where: { id: hymnId },
+    include: HYMN_INCLUDE,
+  });
+
+  return hymn ? toSong(hymn) : null;
 }
 
 export async function findByNumber(collectionSlug: string, number: number) {
-  const collection = await prisma.collection.findUnique({
-    where: { slug: collectionSlug },
-  });
-  if (!collection) return null;
-
-  return prisma.song.findUnique({
+  const hymn = await prisma.hymn.findFirst({
     where: {
-      collectionId_songNumber: { collectionId: collection.id, songNumber: number },
+      ...collectionWhere(collectionSlug),
+      number: String(number),
     },
-    select: SONG_SELECT,
+    include: HYMN_INCLUDE,
+    orderBy: [{ duplicateIndex: 'asc' }],
   });
+
+  return hymn ? toSong(hymn) : null;
 }
 
 export async function search(params: {
@@ -68,116 +83,98 @@ export async function search(params: {
   collectionSlug?: string;
 }) {
   const { query, type, skip, limit, collectionSlug } = params;
+  const where: Prisma.HymnWhereInput = {
+    ...collectionWhere(collectionSlug),
+  };
+  const asNumber = Number.parseInt(query, 10);
 
-  const collectionWhere: Prisma.SongWhereInput['collection'] = collectionSlug
-    ? { slug: collectionSlug }
-    : undefined;
-
-  let where: Prisma.SongWhereInput = {};
-
-  if (collectionWhere) where.collection = collectionWhere;
-
-  // Number search
-  const asNumber = parseInt(query, 10);
-  if (type === 'number' && !isNaN(asNumber)) {
-    where.songNumber = asNumber;
+  if (type === 'number' && Number.isFinite(asNumber)) {
+    where.OR = [{ number: query }, { numberNumeric: asNumber }];
   } else if (type === 'title') {
     where.title = { contains: query, mode: 'insensitive' };
   } else if (type === 'lyrics') {
     where.lyrics = { contains: query, mode: 'insensitive' };
   } else {
-    // 'all' — search across number, title, lyrics
-    const orConditions: Prisma.SongWhereInput[] = [
+    where.OR = [
       { title: { contains: query, mode: 'insensitive' } },
       { lyrics: { contains: query, mode: 'insensitive' } },
     ];
-    if (!isNaN(asNumber)) orConditions.push({ songNumber: asNumber });
-    where = { ...where, OR: orConditions };
+    if (Number.isFinite(asNumber)) {
+      where.OR.push({ number: query }, { numberNumeric: asNumber });
+    }
   }
 
-  const [songs, total] = await Promise.all([
-    prisma.song.findMany({
+  const [hymns, total] = await Promise.all([
+    prisma.hymn.findMany({
       where,
-      select: SONG_SELECT,
-      orderBy: { songNumber: 'asc' },
+      include: HYMN_INCLUDE,
+      orderBy: [{ sourceOrder: 'asc' }],
       skip,
       take: limit,
     }),
-    prisma.song.count({ where }),
+    prisma.hymn.count({ where }),
   ]);
 
-  return { songs, total };
+  return { songs: hymns.map((hymn) => toSearchResult(hymn, query)), total };
 }
 
 export async function findByCollection(collectionSlug: string, params: {
   skip: number;
   limit: number;
 }) {
-  const collection = await prisma.collection.findUnique({
-    where: { slug: collectionSlug },
-    select: { id: true },
-  });
-  if (!collection) return { songs: [], total: 0 };
-
-  const [songs, total] = await Promise.all([
-    prisma.song.findMany({
-      where: { collectionId: collection.id },
-      select: SONG_SELECT,
-      orderBy: { songNumber: 'asc' },
+  const where = collectionWhere(collectionSlug);
+  const [hymns, total] = await Promise.all([
+    prisma.hymn.findMany({
+      where,
+      include: HYMN_INCLUDE,
+      orderBy: [{ categoryOrder: 'asc' }, { duplicateIndex: 'asc' }],
       skip: params.skip,
       take: params.limit,
     }),
-    prisma.song.count({ where: { collectionId: collection.id } }),
+    prisma.hymn.count({ where }),
   ]);
 
-  return { songs, total };
+  return { songs: hymns.map(toSong), total };
 }
 
-export async function create(data: CreateSongInput) {
-  return prisma.song.create({
-    data: {
-      songNumber: data.songNumber,
-      title: data.title,
-      lyrics: data.lyrics,
-      collectionId: data.collectionId,
-      category: data.category,
-      keySignature: data.keySignature,
-      language: data.language,
-    },
-    select: SONG_SELECT,
+export async function getAdjacentSongs(id: string) {
+  const hymnId = Number(id);
+  if (!Number.isInteger(hymnId)) return { prev: null, next: null };
+
+  const current = await prisma.hymn.findUnique({
+    where: { id: hymnId },
+    select: { categoryId: true, categoryOrder: true, duplicateIndex: true },
   });
-}
 
-export async function update(id: string, data: UpdateSongInput) {
-  return prisma.song.update({
-    where: { id },
-    data: {
-      ...(data.title && { title: data.title }),
-      ...(data.lyrics && { lyrics: data.lyrics }),
-      ...(data.category !== undefined && { category: data.category }),
-      ...(data.keySignature !== undefined && { keySignature: data.keySignature }),
-      ...(data.language && { language: data.language }),
-    },
-    select: SONG_SELECT,
-  });
-}
+  if (!current) return { prev: null, next: null };
 
-export async function remove(id: string) {
-  return prisma.song.delete({ where: { id } });
-}
-
-export async function getAdjacentSongs(collectionId: string, currentNumber: number) {
   const [prev, next] = await Promise.all([
-    prisma.song.findFirst({
-      where: { collectionId, songNumber: { lt: currentNumber } },
-      orderBy: { songNumber: 'desc' },
-      select: { id: true, songNumber: true, title: true },
+    prisma.hymn.findFirst({
+      where: {
+        categoryId: current.categoryId,
+        OR: [
+          { categoryOrder: { lt: current.categoryOrder } },
+          { categoryOrder: current.categoryOrder, duplicateIndex: { lt: current.duplicateIndex } },
+        ],
+      },
+      orderBy: [{ categoryOrder: 'desc' }, { duplicateIndex: 'desc' }],
+      include: HYMN_INCLUDE,
     }),
-    prisma.song.findFirst({
-      where: { collectionId, songNumber: { gt: currentNumber } },
-      orderBy: { songNumber: 'asc' },
-      select: { id: true, songNumber: true, title: true },
+    prisma.hymn.findFirst({
+      where: {
+        categoryId: current.categoryId,
+        OR: [
+          { categoryOrder: { gt: current.categoryOrder } },
+          { categoryOrder: current.categoryOrder, duplicateIndex: { gt: current.duplicateIndex } },
+        ],
+      },
+      orderBy: [{ categoryOrder: 'asc' }, { duplicateIndex: 'asc' }],
+      include: HYMN_INCLUDE,
     }),
   ]);
-  return { prev, next };
+
+  return {
+    prev: prev ? toSong(prev) : null,
+    next: next ? toSong(next) : null,
+  };
 }

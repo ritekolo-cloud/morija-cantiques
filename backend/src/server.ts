@@ -7,6 +7,7 @@ import compression from 'compression';
 import swaggerUi from 'swagger-ui-express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import path from 'path';
 
 import { env } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/database';
@@ -18,10 +19,11 @@ import apiRoutes from './routes';
 
 const app = express();
 const httpServer = createServer(app);
+const corsOrigin = env.corsOrigins.includes('*') ? true : env.corsOrigins;
 
 // Socket.io for real-time notifications (optional)
 export const io = new Server(httpServer, {
-  cors: { origin: env.corsOrigin, credentials: true },
+  cors: { origin: corsOrigin, credentials: true },
 });
 
 io.on('connection', (socket) => {
@@ -32,8 +34,8 @@ io.on('connection', (socket) => {
 });
 
 // Middleware
-app.use(helmet());
-app.use(cors({ origin: env.corsOrigin, credentials: true }));
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(compression());
 app.use(cookieParser());
 app.use(express.json());
@@ -48,6 +50,14 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/api', apiRoutes);
+
+if (env.isProd) {
+  const frontendDist = path.resolve(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendDist));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
 
 // 404 & Global Error Handling
 app.use(notFound);

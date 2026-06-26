@@ -7,6 +7,17 @@ const devFormat = printf(({ level, message, timestamp: ts, stack }) => {
   return `${ts} [${level}]: ${stack ?? message}`;
 });
 
+const transports: winston.transport[] = [
+  new winston.transports.Console(),
+];
+
+if (!env.isProd) {
+  transports.push(
+    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/combined.log' })
+  );
+}
+
 export const logger = winston.createLogger({
   level: env.logLevel,
   format: combine(
@@ -14,10 +25,6 @@ export const logger = winston.createLogger({
     errors({ stack: true }),
     env.isDev ? combine(colorize(), devFormat) : json()
   ),
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-  ],
+  transports,
   silent: env.nodeEnv === 'test',
 });

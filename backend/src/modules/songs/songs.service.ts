@@ -1,7 +1,13 @@
 import * as repo from './songs.repository';
 import { AppError } from '../../middleware/error.middleware';
-import { parsePagination, buildPaginationMeta } from '../../utils/response';
-import { parsePagination, buildPaginationMeta } from '../../utils/response';
+import { buildPaginationMeta, parsePagination } from '../../utils/response';
+
+function paginated<T>(items: T[], total: number, page: number, limit: number) {
+  return {
+    data: items,
+    ...buildPaginationMeta(total, page, limit),
+  };
+}
 
 export async function getAllSongs(query: Record<string, unknown>) {
   const { page, limit, skip } = parsePagination(query);
@@ -10,8 +16,10 @@ export async function getAllSongs(query: Record<string, unknown>) {
     limit,
     collectionId: query.collectionId as string | undefined,
     language: query.language as string | undefined,
+    search: query.search as string | undefined,
   });
-  return { songs, meta: buildPaginationMeta(total, page, limit) };
+
+  return paginated(songs, total, page, limit);
 }
 
 export async function getSongById(id: string) {
@@ -28,22 +36,25 @@ export async function getSongByNumber(collectionSlug: string, number: number) {
 
 export async function searchSongs(query: Record<string, unknown>) {
   const { page, limit, skip } = parsePagination(query);
-  const q = String(query.q ?? '');
-  const type = String(query.type ?? 'all');
-  const collectionSlug = query.collectionSlug as string | undefined;
+  const q = String(query.q ?? '').trim();
+  const type = String(query.type ?? query.scope ?? 'all');
+  const collectionSlug = (query.collectionSlug ?? query.collectionId) as string | undefined;
+
+  if (!q) return paginated([], 0, page, limit);
 
   const { songs, total } = await repo.search({ query: q, type, skip, limit, collectionSlug });
-  return { songs, meta: buildPaginationMeta(total, page, limit) };
+  return paginated(songs, total, page, limit);
 }
 
 export async function getSongsByCollection(slug: string, query: Record<string, unknown>) {
   const { page, limit, skip } = parsePagination(query);
   const { songs, total } = await repo.findByCollection(slug, { skip, limit });
-  return { songs, meta: buildPaginationMeta(total, page, limit) };
+  return {
+    songs,
+    meta: buildPaginationMeta(total, page, limit),
+  };
 }
 
-
 export async function getAdjacentSongs(id: string) {
-  const song = await getSongById(id);
-  return repo.getAdjacentSongs(song.collectionId, song.songNumber);
+  return repo.getAdjacentSongs(id);
 }

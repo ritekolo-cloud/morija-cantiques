@@ -1,6 +1,3 @@
-// This is your Prisma schema file
-// Learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,55 +7,146 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Models
-model Language {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  name      String
-  createdAt DateTime @default(now())
-
-  @@map("languages")
+enum UserRole {
+  USER
+  ADMIN
 }
 
-model Category {
-  id          String   @id @default(cuid())
-  name        String   @unique
+model HymnCategory {
+  id                  Int      @id @default(autoincrement())
+  code                String   @unique
+  name                String
+  description         String?
+  language            String?
+  languageName        String?  @map("language_name")
+  region              String?
+  owner               String?
+  sourceOrder         Int      @map("source_order")
+  sourceDeclaredCount Int?     @map("source_declared_count")
+  hymnCount           Int      @map("hymn_count")
+  hymns               Hymn[]
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("hymn_categories")
+}
+
+model Hymn {
+  id             Int          @id @default(autoincrement())
+  sourceId       String       @unique @map("source_id")
+  sourceOrder    Int          @map("source_order")
+  categoryOrder  Int          @map("category_order")
+  categoryId     Int          @map("category_id")
+  category       HymnCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryCode   String       @map("category_code")
+  number         String
+  numberNumeric  Int?         @map("number_numeric")
+  numberSuffix   String?      @map("number_suffix")
+  duplicateIndex Int          @default(1) @map("duplicate_index")
+  title          String
+  gamme          String?
+  author         String?
+  lyrics         String       @db.Text
+  lyricsLines    Json         @map("lyrics_lines")
+  verses         Json
+  favorites      Favorite[]
+  recentViews    RecentHymn[]
+  playlistItems  PlaylistHymn[]
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@unique([categoryId, number, duplicateIndex])
+  @@index([number], map: "hymns_number_idx")
+  @@index([title], map: "hymns_title_idx")
+  @@index([categoryId], map: "hymns_category_id_idx")
+  @@index([categoryCode], map: "hymns_category_code_idx")
+  @@index([categoryId, numberNumeric, numberSuffix], map: "hymns_category_number_idx")
+  @@map("hymns")
+}
+
+model User {
+  id           Int            @id @default(autoincrement())
+  email        String         @unique
+  passwordHash String         @map("password_hash")
+  displayName  String         @map("display_name")
+  role         UserRole       @default(USER)
+  settings     Json           @default("{}")
+  refreshTokens RefreshToken[]
+  favorites    Favorite[]
+  recentHymns  RecentHymn[]
+  playlists    Playlist[]
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  @@map("app_users")
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @unique @map("token_hash")
+  userId    Int       @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  hymnId    Int      @map("hymn_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hymn      Hymn     @relation(fields: [hymnId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, hymnId])
+  @@index([hymnId])
+  @@map("favorites")
+}
+
+model RecentHymn {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  hymnId    Int      @map("hymn_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hymn      Hymn     @relation(fields: [hymnId], references: [id], onDelete: Cascade)
+  viewCount Int      @default(1) @map("view_count")
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  @@unique([userId, hymnId])
+  @@index([userId, viewedAt])
+  @@index([hymnId])
+  @@map("recent_hymns")
+}
+
+model Playlist {
+  id          Int            @id @default(autoincrement())
+  userId      Int            @map("user_id")
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
   description String?
-  color       String?
-  createdAt   DateTime @default(now())
+  isPublic    Boolean        @default(false) @map("is_public")
+  items       PlaylistHymn[]
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
 
-  @@map("categories")
+  @@index([userId])
+  @@map("playlists")
 }
 
-model Collection {
-  id        String   @id @default(cuid())
-  slug      String   @unique
-  name      String
-  subtitle  String?
-  language  String
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+model PlaylistHymn {
+  id         Int      @id @default(autoincrement())
+  playlistId Int      @map("playlist_id")
+  hymnId     Int      @map("hymn_id")
+  position   Int      @default(0)
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  hymn       Hymn     @relation(fields: [hymnId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
 
-  songs Song[]
-
-  @@map("collections")
-}
-
-model Song {
-  id           String   @id @default(cuid())
-  songNumber   Int
-  title        String
-  lyrics       String   // JSON string of sections array
-  category     String?
-  keySignature String?
-  collectionId String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  collection   Collection   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-
-  @@unique([collectionId, songNumber])
-  @@index([title])
-  @@index([songNumber])
-  @@map("songs")
+  @@unique([playlistId, hymnId])
+  @@index([hymnId])
+  @@map("playlist_hymns")
 }

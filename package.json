@@ -10,9 +10,17 @@
     "dev:backend": "npm run dev --workspace=@morija/backend",
     "dev:frontend": "npm run dev --workspace=@morija/frontend",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "npm run build --workspace=@morija/backend && npm run build --workspace=@morija/frontend",
+    "start": "npm run start --workspace=@morija/backend",
+    "postinstall": "npm run prisma:generate --workspace=@morija/backend",
     "db:generate": "npm run prisma:generate --workspace=@morija/backend",
-    "db:migrate": "npm run prisma:migrate --workspace=@morija/backend",
-    "db:seed": "npm run prisma:seed --workspace=@morija/backend"
+    "db:migrate": "npm run prisma:migrate:deploy --workspace=@morija/backend",
+    "db:migrate:dev": "npm run prisma:migrate:dev --workspace=@morija/backend",
+    "db:seed": "npm run prisma:seed --workspace=@morija/backend",
+    "hymns:validate": "npm run hymns:validate --workspace=@morija/backend",
+    "hymns:import": "npm run hymns:import --workspace=@morija/backend",
+    "migration:report": "npm run migration:report --workspace=@morija/backend",
+    "setup": "npm run db:generate && npm run db:migrate && npm run hymns:validate && npm run hymns:import && npm run migration:report"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

@@ -8,3 +8,7 @@ coverage/
 .vscode/
 .DS_Store
 *.log
+logs/
+*.tsbuildinfo
+reports/
+backend/reports/

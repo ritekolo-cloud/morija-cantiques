@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: morija-cantiques
+    env: node
+    plan: free
+    region: oregon
+    autoDeploy: true
+    buildCommand: npm ci && npm run build && npm run db:migrate && npm run hymns:validate && npm run hymns:import
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://morija-cantiques.onrender.com
+      - key: LOG_LEVEL
+        value: info

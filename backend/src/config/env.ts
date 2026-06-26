@@ -2,10 +2,10 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { z } from 'zod';
 
-// Load env from the workspace root (one level up from backend/)
-dotenv.config({ path: path.resolve(__dirname, '../../../env') });
-// Also try .env in backend dir
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+// Load env from the monorepo root and from backend/.env. These paths work
+// both from src/ during development and dist/ after compilation.
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -71,6 +71,7 @@ export const env = {
     max: parseInt(parsed.data.RATE_LIMIT_MAX_REQUESTS, 10),
   },
   corsOrigin: parsed.data.CORS_ORIGIN,
+  corsOrigins: parsed.data.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean),
   isDev: parsed.data.NODE_ENV === 'development',
   isProd: parsed.data.NODE_ENV === 'production',
 };

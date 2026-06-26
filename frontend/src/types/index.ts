@@ -172,16 +172,20 @@ export interface ApiResponse<T = unknown> {
   data: T;
   message?: string;
   error?: string;
+  meta?: PaginationMeta;
 }
 
-export interface PaginatedResponse<T = unknown> {
-  data: T[];
+export interface PaginationMeta {
   total: number;
   page: number;
   limit: number;
   totalPages: number;
   hasNext: boolean;
   hasPrev: boolean;
+}
+
+export interface PaginatedResponse<T = unknown> extends PaginationMeta {
+  data: T[];
 }
 
 export interface PaginatedApiResponse<T = unknown> {
