@@ -12,7 +12,7 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "build": "npm run build --workspace=@morija/backend && npm run build --workspace=@morija/frontend",
     "start": "npm run start --workspace=@morija/backend",
-    "postinstall": "npm run prisma:generate --workspace=@morija/backend",
+    "postinstall": "node scripts/postinstall.js",
     "db:generate": "npm run prisma:generate --workspace=@morija/backend",
     "db:migrate": "npm run prisma:migrate:deploy --workspace=@morija/backend",
     "db:migrate:dev": "npm run prisma:migrate:dev --workspace=@morija/backend",
