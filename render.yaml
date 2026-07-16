@@ -1,49 +1,77 @@
 services:
-  # 1. Unified Node Web Service (Serving both Frontend and Backend API)
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Unified Node.js Web Service
+  # The backend Express server (port 5000) serves BOTH the API (/api/*)
+  # AND the compiled React SPA (frontend/dist) in production.
+  # This avoids needing a second service and keeps things on the free plan.
+  # ─────────────────────────────────────────────────────────────────────────────
   - type: web
     name: morija-cantiques
     runtime: node
     plan: free
     repo: https://github.com/ritekolo-cloud/morija-cantiques
-    buildCommand: npm install --include=dev && npm run build
-    startCommand: npm run db:migrate && npm run hymns:import && npm start
+    # Build: install deps → generate Prisma client → build TS + React
+    #        → run migrations → import hymns (idempotent upsert, safe to repeat)
+    buildCommand: >-
+      npm install --include=dev &&
+      npx prisma generate --schema=backend/prisma/schema.prisma &&
+      npm run build &&
+      npx prisma migrate deploy --schema=backend/prisma/schema.prisma &&
+      node backend/scripts/import-hymns.mjs
+    # Start: simply launch the compiled server — no heavy work at runtime
+    startCommand: npm start
     healthCheckPath: /api/health
-    autoDeployTrigger: commit
+    autoDeploy: true
     envVars:
+      # ── Runtime ──────────────────────────────────────────────────
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "5000"
+
+      # ── Database ─────────────────────────────────────────────────
       - key: DATABASE_URL
         fromDatabase:
           name: morija-db
           property: connectionString
+
+      # ── JWT ──────────────────────────────────────────────────────
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
-      - key: CLIENT_URL
-        value: https://morija-cantiques.onrender.com
-      - key: CORS_ORIGIN
-        value: https://morija-cantiques.onrender.com
       - key: JWT_EXPIRES_IN
         value: 15m
       - key: JWT_REFRESH_EXPIRES_IN
         value: 7d
+
+      # ── CORS / URLs ──────────────────────────────────────────────
+      - key: CLIENT_URL
+        value: https://morija-cantiques.onrender.com
+      - key: CORS_ORIGIN
+        value: https://morija-cantiques.onrender.com
+
+      # ── Security ─────────────────────────────────────────────────
       - key: BCRYPT_ROUNDS
         value: "12"
       - key: RATE_LIMIT_WINDOW_MS
         value: "900000"
       - key: RATE_LIMIT_MAX_REQUESTS
         value: "100"
+
+      # ── Logging ──────────────────────────────────────────────────
       - key: LOG_LEVEL
         value: info
-      # Admin configuration (Uses secure defaults or generated value for password)
+
+      # ── Admin Account ────────────────────────────────────────────
       - key: ADMIN_NAME
         value: Administrator
       - key: ADMIN_EMAIL
         value: admin@morijacantiques.com
       - key: ADMIN_PASSWORD
         generateValue: true
-      # SMTP Configuration
+
+      # ── SMTP (set manually in Render dashboard if needed) ────────
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT
@@ -55,7 +83,9 @@ services:
       - key: EMAIL_FROM
         value: "Morija-Cantiques <noreply@morijacantiques.com>"
 
-# 2. PostgreSQL Database Instance
+# ─────────────────────────────────────────────────────────────────────────────
+# PostgreSQL Database (free tier — 1 GB storage)
+# ─────────────────────────────────────────────────────────────────────────────
 databases:
   - name: morija-db
     plan: free

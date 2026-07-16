@@ -26,11 +26,24 @@ function chunks(items, size) {
 const categoryCodes = payload.categories.map((category) => category.code);
 const sourceIds = payload.hymns.map((hymn) => hymn.sourceId);
 
+function cleanText(text) {
+  if (!text) return text;
+  return text
+    .replace(/s\?culaire/g, 'séculaire')
+    .replace(/S\?culaire/g, 'Séculaire')
+    .replace(/fran\?ais/g, 'français')
+    .replace(/Fran\?ais/g, 'Français')
+    .replace(/mix\?es/g, 'mixées')
+    .replace(/Mix\?es/g, 'mixées')
+    .replace(/believe \? 2/g, 'believe - 2')
+    .replace(/Believe \? 2/g, 'Believe - 2');
+}
+
 for (const category of payload.categories) {
   const data = {
     code: category.code,
-    name: category.name,
-    description: category.description,
+    name: cleanText(category.name),
+    description: cleanText(category.description),
     language: category.language,
     languageName: category.languageName,
     region: category.region,

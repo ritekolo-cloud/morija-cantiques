@@ -35,3 +35,29 @@ I have successfully redesigned the application's user interface and core flow to
 
 - **TypeScript compilation**: Verified with `npx tsc --noEmit` and it compiled successfully with **0 errors**.
 - **Production Bundle**: Verified with `npm run build` and it compiled successfully in **8.58s** without warnings.
+
+---
+
+## Session 2: Language Badge & Encoding Fixes
+
+### Changes Made
+
+#### 1. Language Badge Fix (`CollectionCard.tsx`)
+- **Root Cause**: The original `getLanguageStyle` function used `lang.includes('en')` as its first check, which accidentally matched `"french"` (which contains `"en"`) and displayed the `ENGLISH` badge for French collections like *Crois seulement* and *Hosanna*.
+- **Fix**: Rewrote matching rules to use precise checks — `lang === 'en'` or `lang.includes('english')` — so French/Swahili/English are correctly disambiguated. Also switched priority of the `language` field over `languageName` for lookup since the backend returns `language: 'en'/'fr'/'sw'`.
+
+#### 2. Encoding Cleanup (`import-hymns.mjs`)
+- **Root Cause**: The source JSON file `cantiques-hymns.json` contained garbled `?` characters in several category names and descriptions, resulting from a lossy character encoding conversion when the data was originally extracted (e.g. `"Roc s?culaire"`, `"fran?ais"`, `"mix?es"`, `"Only believe ? 2"`).
+- **Fix**: Added a `cleanText()` helper function in the import script that applies targeted regex replacements to restore the correct French accented characters and hyphens before upserting to the database. Re-ran `npm run hymns:import` to apply the fix.
+
+### Verification
+
+- **Build**: `npm run build` succeeded with **0 errors** in 7.68s.
+- **Visual**: Screenshot of the home page confirms all 13 collection cards now display correct language badges and titles:
+  - *Only believe* → **ENGLISH** ✅
+  - *Crois seulement* → **FRANÇAIS** ✅
+  - *Hosanna* → **FRANÇAIS** ✅
+  - *Nyimbo za mungu* → **SWAHILI** ✅
+  - *Roc séculaire* → correct title (no `?`) ✅
+  - *Only believe - 2* → correct title (no `?`) ✅
+

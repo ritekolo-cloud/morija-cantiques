@@ -1,24 +1,29 @@
 @import "tailwindcss";
 
 @theme {
+  /* Font families */
   --font-nunito: "Nunito Sans", sans-serif;
   --font-source: "Source Sans Pro", sans-serif;
-  --font-inter: "Inter", sans-serif;
-  
+  --font-inter: "Inter", system-ui, sans-serif;
+  --font-display: "Playfair Display", Georgia, serif;
+
+  /* Brand Colors */
   --color-cream: #FFFDF0;
   --color-black: #0A0A08;
-  --color-yellow: #FFF000;
-  --color-dark-purple: #1a082a;
-  --color-dark-purple-light: #2d1345;
+  --color-yellow: #E5B83B;
+  --color-gold: #E5B83B;
+  --color-dark-purple: #0D0714;
+  --color-dark-purple-light: #180826;
 }
 
 @layer base {
   html {
     @apply antialiased scroll-smooth;
   }
-  
+
   body {
-    @apply bg-dark-purple text-cream font-nunito selection:bg-yellow selection:text-black;
+    @apply bg-dark-purple text-cream font-inter selection:bg-yellow selection:text-black;
+    font-family: var(--font-inter, "Inter", system-ui, sans-serif);
   }
 
   /* Hide scrollbar for clean app-like feel */
@@ -31,5 +36,9 @@
 @layer utilities {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .font-display {
+    font-family: var(--font-display, "Playfair Display", Georgia, serif);
   }
 }

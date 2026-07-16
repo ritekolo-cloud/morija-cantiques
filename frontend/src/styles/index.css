@@ -1,13 +1,12 @@
 @import "tailwindcss";
 
-/* ─── Google Fonts (fallback inline) ─── */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Inter:wght@300;400;500;600;700&display=swap');
+
 
 /* ─── Design Tokens (Light) ─── */
 :root {
   /* Colors */
-  --color-brand: #FFFF00;
-  --color-brand-dim: #CCCC00;
+  --color-brand: #E5B83B;
+  --color-brand-dim: #C59828;
   --color-black: #0A0A08;
   --color-white: #FFFFFF;
   --color-cream: #FFFDF0;
@@ -22,6 +21,12 @@
   --color-bg-card: #FFFFFF;
   --color-bg-elevated: #F9F7E8;
   --color-overlay: rgba(10, 10, 8, 0.5);
+
+  /* Leather-like gradients */
+  --leather-navy: linear-gradient(135deg, #16273d 0%, #0d1420 100%);
+  --leather-wine: linear-gradient(135deg, #400e26 0%, #200511 100%);
+  --leather-emerald: linear-gradient(135deg, #0a331c 0%, #041a0d 100%);
+  --leather-charcoal: linear-gradient(135deg, #2a2a2a 0%, #121212 100%);
 
   /* Language accent colors */
   --color-english: #1E40AF;
@@ -317,4 +322,20 @@ a {
   .glass {
     background: var(--color-bg-card);
   }
+}
+
+.bg-leather-navy { background: var(--leather-navy); }
+.bg-leather-wine { background: var(--leather-wine); }
+.bg-leather-emerald { background: var(--leather-emerald); }
+.bg-leather-charcoal { background: var(--leather-charcoal); }
+
+.leather-shimmer {
+  position: relative;
+}
+.leather-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.05) 100%);
+  pointer-events: none;
 }

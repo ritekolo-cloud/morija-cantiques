@@ -29,23 +29,27 @@ export function AppLayout() {
         </main>
 
         {/* Bottom Navigation */}
-        <nav className="absolute bottom-0 left-0 right-0 h-20 bg-[#0a0212]/95 backdrop-blur-xl border-t border-white/5 px-6 pb-safe z-20">
-          <ul className="h-full flex justify-between items-center">
+        <nav className="absolute bottom-5 left-4 right-4 h-16 bg-[#0c0418]/80 backdrop-blur-md border border-white/10 rounded-2xl px-5 z-20 shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center justify-center">
+          <ul className="w-full flex justify-between items-center">
             {navItems.map((item) => {
               const isActive = location.pathname.startsWith(item.to);
               return (
-                <li key={item.to}>
+                <li key={item.to} className="flex-1 flex justify-center">
                   <NavLink
                     to={item.to}
                     className={clsx(
-                      "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all duration-300",
+                      "flex flex-col items-center justify-center gap-0.5 w-16 py-1 rounded-xl transition-all duration-300 relative select-none",
                       isActive 
-                        ? "text-yellow scale-110 font-bold" 
+                        ? "text-[#E5B83B] scale-105 font-bold" 
                         : "text-cream/40 hover:text-cream/80"
                     )}
                   >
-                    <item.icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
-                    <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
+                    {/* Active Background Pill */}
+                    {isActive && (
+                      <div className="absolute inset-0 bg-white/[0.04] border border-white/[0.05] rounded-xl -z-10 animate-fade-in" />
+                    )}
+                    <item.icon className="w-5.5 h-5.5" strokeWidth={isActive ? 2.3 : 1.8} />
+                    <span className="text-[9px] font-semibold tracking-wider uppercase">{item.label}</span>
                   </NavLink>
                 </li>
               );

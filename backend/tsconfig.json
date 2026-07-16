@@ -26,7 +26,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
 
-    "typeRoots": ["./node_modules/@types"],
     "types": ["node"],
 
     "noUnusedLocals": false,

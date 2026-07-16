@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useHymn, useAdjacentHymns } from '../hooks/useHymns';
 import { useFavoritesStore } from '../store/favorites.store';
 import { useBookmarksStore } from '../store/bookmarks.store';
+import { useRecentStore } from '../store/recent.store';
 import { Spinner } from '../components/ui/Spinner';
 import type { SongSection } from '../types';
 import {
@@ -19,11 +20,10 @@ import {
   Share2,
   Sun,
   X,
+  MonitorOff,
 } from 'lucide-react';
 
-type ProjectionSection = SongSection & {
-  lines: string[];
-};
+type ProjectionSection = SongSection & { lines: string[] };
 
 const PROJECTOR_MIN_FONT = 7;
 const PROJECTOR_MAX_FONT = 46;
@@ -136,15 +136,14 @@ function ProjectionColumn({ sections, fontSize }: { sections: ProjectionSection[
     <div className="min-w-0 flex flex-col justify-center gap-[0.75em]">
       {sections.map((section, sectionIndex) => {
         const isChorus = section.type === 'chorus' || section.type === 'refrain';
-
         return (
           <section
             key={`${section.order}-${section.label}-${sectionIndex}`}
-            className={isChorus ? 'border-l-4 border-yellow pl-[0.65em]' : undefined}
+            className={isChorus ? 'border-l-4 border-[#E5B83B] pl-[0.65em]' : undefined}
           >
             {section.label && (
               <p
-                className="mb-[0.4em] font-extrabold uppercase text-yellow/70"
+                className="mb-[0.4em] font-extrabold uppercase text-[#E5B83B]/70"
                 style={{ fontSize: `${Math.max(8, fontSize * 0.42)}px`, letterSpacing: 0 }}
               >
                 {section.label}
@@ -164,6 +163,7 @@ function ProjectionColumn({ sections, fontSize }: { sections: ProjectionSection[
   );
 }
 
+// ─── Hymn Detail Page ──────────────────────────────────────
 export function HymnDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -173,6 +173,7 @@ export function HymnDetailPage() {
 
   const { favoriteIds, addFavorite, removeFavorite } = useFavoritesStore();
   const { bookmarkIds, addBookmark, removeBookmark } = useBookmarksStore();
+  const { addRecent } = useRecentStore();
 
   const [fontSize, setFontSize] = useState(18);
   const [isLightMode, setIsLightMode] = useState(false);
@@ -181,7 +182,9 @@ export function HymnDetailPage() {
   const [projectorControlsVisible, setProjectorControlsVisible] = useState(true);
   const [projectorZoom, setProjectorZoom] = useState(1);
   const [viewport, setViewport] = useState(getInitialViewport);
+  const [wakeLockActive, setWakeLockActive] = useState(false);
   const clickTimerRef = useRef<number | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const sections = useMemo(() => parseSections(song), [song]);
   const projectionColumns = useMemo(() => splitProjectionColumns(sections), [sections]);
@@ -189,6 +192,13 @@ export function HymnDetailPage() {
     () => estimateFontSize(projectionColumns, viewport, projectorControlsVisible, projectorZoom),
     [projectionColumns, projectorControlsVisible, projectorZoom, viewport]
   );
+
+  // Track recently read hymns
+  useEffect(() => {
+    if (song?.id) {
+      addRecent(String(song.id));
+    }
+  }, [song?.id, addRecent]);
 
   useEffect(() => {
     const updateViewport = () => setViewport(getInitialViewport());
@@ -218,11 +228,38 @@ export function HymnDetailPage() {
     if (clickTimerRef.current) window.clearTimeout(clickTimerRef.current);
   }, []);
 
+  // Screen Wake Lock — prevent screen from sleeping during reading
+  const toggleWakeLock = useCallback(async () => {
+    if (wakeLockActive) {
+      try {
+        await wakeLockRef.current?.release();
+        wakeLockRef.current = null;
+        setWakeLockActive(false);
+      } catch { /* ignore */ }
+    } else {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+          setWakeLockActive(true);
+          wakeLockRef.current!.addEventListener('release', () => {
+            setWakeLockActive(false);
+            wakeLockRef.current = null;
+          });
+        }
+      } catch { /* ignore */ }
+    }
+  }, [wakeLockActive]);
+
+  // Release wake lock on unmount
+  useEffect(() => () => {
+    wakeLockRef.current?.release().catch(() => {});
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-10rem)]">
         <Spinner />
-        <span className="text-sm text-cream/60 mt-4 uppercase tracking-widest font-semibold">
+        <span className="text-xs text-cream/50 mt-4 uppercase tracking-[0.2em] font-bold">
           Opening Hymn Book...
         </span>
       </div>
@@ -231,8 +268,10 @@ export function HymnDetailPage() {
 
   if (error || !song) {
     return (
-      <div className="p-6 text-center text-red-500 font-bold mt-10">
-        Hymn not found or failed to load.
+      <div className="p-6 text-center mt-10">
+        <div className="p-6 bg-red-500/5 border border-red-500/15 rounded-2xl">
+          <p className="text-red-400 font-bold text-sm">Hymn not found or failed to load.</p>
+        </div>
       </div>
     );
   }
@@ -240,21 +279,8 @@ export function HymnDetailPage() {
   const isFavorited = favoriteIds.includes(song.id);
   const isBookmarked = bookmarkIds.includes(song.id);
 
-  const toggleFavorite = () => {
-    if (isFavorited) {
-      removeFavorite(song.id);
-    } else {
-      addFavorite(song.id);
-    }
-  };
-
-  const toggleBookmark = () => {
-    if (isBookmarked) {
-      removeBookmark(song.id);
-    } else {
-      addBookmark(song.id);
-    }
-  };
+  const toggleFavorite = () => isFavorited ? removeFavorite(song.id) : addFavorite(song.id);
+  const toggleBookmark = () => isBookmarked ? removeBookmark(song.id) : addBookmark(song.id);
 
   const handleCopy = () => {
     const textToCopy = `${song.songNumber}. ${song.title}\n\n` +
@@ -277,7 +303,6 @@ export function HymnDetailPage() {
       navigator.share(shareData).catch(() => {});
     } else {
       navigator.clipboard.writeText(window.location.href);
-      alert('Link copied to clipboard!');
     }
   };
 
@@ -314,6 +339,7 @@ export function HymnDetailPage() {
     if (adjacentId) navigate(`/app/hymns/${adjacentId}`);
   };
 
+  // ─── Projection Mode ─────────────────────────────────────
   if (isProjecting) {
     return (
       <div
@@ -327,17 +353,13 @@ export function HymnDetailPage() {
           onClick={(event) => event.stopPropagation()}
         >
           <div className="min-w-0">
-            <p className="text-xs font-extrabold uppercase text-yellow">
-              Hymn {song.songNumber}
-            </p>
-            <h1 className="truncate text-xl font-extrabold text-cream">
-              {song.title}
-            </h1>
+            <p className="text-xs font-extrabold uppercase text-[#E5B83B]">Hymn {song.songNumber}</p>
+            <h1 className="truncate text-xl font-extrabold text-cream">{song.title}</h1>
           </div>
           <button
             onClick={exitProjection}
+            aria-label="Exit projection"
             className="h-11 w-11 rounded-full bg-white/10 text-cream flex items-center justify-center hover:bg-white/15 transition-colors"
-            title="Exit projection"
           >
             <X className="w-5 h-5" />
           </button>
@@ -366,17 +388,17 @@ export function HymnDetailPage() {
           <button
             onClick={() => goToAdjacent(adjacent?.prev?.id)}
             disabled={!adjacent?.prev}
+            aria-label="Previous hymn"
             className="h-11 px-4 rounded-xl bg-white/10 disabled:opacity-25 disabled:pointer-events-none flex items-center gap-2 font-bold hover:bg-white/15 transition-colors"
           >
-            <ChevronLeft className="w-5 h-5" />
-            Previous
+            <ChevronLeft className="w-5 h-5" /> Previous
           </button>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setProjectorZoom((value) => clamp(value - 0.08, 0.7, 1.35))}
+              onClick={() => setProjectorZoom((v) => clamp(v - 0.08, 0.7, 1.35))}
+              aria-label="Zoom out"
               className="h-11 w-11 rounded-xl bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
-              title="Zoom out"
             >
               <Minus className="w-5 h-5" />
             </button>
@@ -384,9 +406,9 @@ export function HymnDetailPage() {
               {Math.round(projectorZoom * 100)}%
             </span>
             <button
-              onClick={() => setProjectorZoom((value) => clamp(value + 0.08, 0.7, 1.35))}
+              onClick={() => setProjectorZoom((v) => clamp(v + 0.08, 0.7, 1.35))}
+              aria-label="Zoom in"
               className="h-11 w-11 rounded-xl bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
-              title="Zoom in"
             >
               <Plus className="w-5 h-5" />
             </button>
@@ -395,115 +417,166 @@ export function HymnDetailPage() {
           <button
             onClick={() => goToAdjacent(adjacent?.next?.id)}
             disabled={!adjacent?.next}
+            aria-label="Next hymn"
             className="h-11 px-4 rounded-xl bg-white/10 disabled:opacity-25 disabled:pointer-events-none flex items-center gap-2 font-bold hover:bg-white/15 transition-colors"
           >
-            Next
-            <ChevronRight className="w-5 h-5" />
+            Next <ChevronRight className="w-5 h-5" />
           </button>
         </footer>
       </div>
     );
   }
 
+  // ─── Reader Mode ─────────────────────────────────────────
+  // Theme classes
+  const bg = isLightMode ? 'bg-[#FDFBF7]' : 'bg-[#0D0714]';
+  const textPrimary = isLightMode ? 'text-[#1C1B17]' : 'text-[#EADECA]';
+  const borderColor = isLightMode ? 'border-black/8' : 'border-white/[0.06]';
+  const glassBg = isLightMode ? 'bg-[#FDFBF7]/90' : 'bg-[#0D0714]/90';
+  const btnHover = isLightMode ? 'hover:bg-black/[0.05]' : 'hover:bg-white/[0.06]';
+
   return (
-    <div className={`min-h-screen flex flex-col transition-all duration-300 ${isLightMode ? 'bg-[#FFFDF0] text-black' : 'bg-[#140622] text-cream'}`}>
-      <header className={`sticky top-0 z-10 px-6 py-4 flex items-center justify-between border-b backdrop-blur-md ${isLightMode ? 'bg-[#FFFDF0]/80 border-black/10' : 'bg-[#140622]/80 border-white/10'}`}>
-        <div className="flex items-center gap-3">
+    <div className={`min-h-screen flex flex-col transition-all duration-300 ${bg} ${textPrimary}`}>
+
+      {/* ── Sticky Header / Controls ─────────────────────── */}
+      <header
+        className={`sticky top-0 z-10 px-4 py-3 flex items-center justify-between border-b backdrop-blur-md ${glassBg} ${borderColor}`}
+        role="banner"
+      >
+        {/* Back + Collection name */}
+        <div className="flex items-center gap-2.5">
           <Link
             to={song.collection ? `/app/collections/${song.collection.slug}` : '/app/home'}
-            className={`w-9 h-9 rounded-full bg-black/5 flex items-center justify-center transition-all ${isLightMode ? 'text-black hover:bg-black/10' : 'bg-white/5 text-cream hover:bg-white/10'}`}
+            aria-label="Back to collection"
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${btnHover} ${isLightMode ? 'text-[#1C1B17]' : 'text-cream/80'}`}
           >
             <ChevronLeft className="w-5 h-5" />
           </Link>
-          <span className="text-xs font-extrabold uppercase tracking-widest opacity-60">
+          <span className={`text-[9px] font-extrabold uppercase tracking-[0.18em] truncate max-w-[100px] ${isLightMode ? 'text-black/40' : 'text-cream/40'}`}>
             {song.collection?.name || 'Hymn'}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Controls row */}
+        <div className="flex items-center gap-1">
+          {/* Font size */}
           <button
-            onClick={() => setFontSize((size) => Math.max(14, size - 2))}
-            className={`p-2 rounded-xl transition-colors ${isLightMode ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
-            title="Decrease font size"
+            onClick={() => setFontSize((s) => Math.max(13, s - 2))}
+            aria-label="Decrease font size"
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-xs transition-all select-none ${btnHover}`}
           >
-            <span className="font-extrabold text-sm select-none">A-</span>
+            A-
           </button>
           <button
-            onClick={() => setFontSize((size) => Math.min(32, size + 2))}
-            className={`p-2 rounded-xl transition-colors ${isLightMode ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
-            title="Increase font size"
+            onClick={() => setFontSize((s) => Math.min(34, s + 2))}
+            aria-label="Increase font size"
+            className={`w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-base transition-all select-none ${btnHover}`}
           >
-            <span className="font-extrabold text-lg select-none">A+</span>
+            A+
           </button>
+
+          {/* Wake Lock */}
+          {'wakeLock' in navigator && (
+            <button
+              onClick={toggleWakeLock}
+              aria-label={wakeLockActive ? 'Disable screen wake lock' : 'Keep screen on'}
+              title={wakeLockActive ? 'Screen stays on — tap to disable' : 'Keep screen on'}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${btnHover} ${wakeLockActive ? 'text-[#E5B83B]' : isLightMode ? 'text-black/40' : 'text-cream/40'}`}
+            >
+              <MonitorOff className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Projection */}
           <button
             onClick={enterProjection}
-            className={`p-2 rounded-xl transition-colors ${isLightMode ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
-            title="Project hymn"
+            aria-label="Project hymn fullscreen"
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${btnHover}`}
           >
-            <Maximize2 className="w-5 h-5" />
+            <Maximize2 className="w-4 h-4" />
           </button>
+
+          {/* Theme toggle */}
           <button
             onClick={() => setIsLightMode(!isLightMode)}
-            className={`p-2 rounded-xl transition-colors ${isLightMode ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
-            title="Toggle theme"
+            aria-label={isLightMode ? 'Switch to dark mode' : 'Switch to light mode'}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${btnHover}`}
           >
-            {isLightMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            {isLightMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
           </button>
+
+          {/* Bookmark */}
           <button
             onClick={toggleBookmark}
-            className={`p-2 rounded-xl transition-colors ${isLightMode ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
-            title="Bookmark"
+            aria-label={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${btnHover}`}
           >
-            <Bookmark className={`w-5 h-5 transition-colors ${isBookmarked ? 'fill-yellow text-yellow stroke-[2px]' : ''}`} />
+            <Bookmark className={`w-4 h-4 transition-colors ${isBookmarked ? 'fill-[#E5B83B] text-[#E5B83B]' : ''}`} />
           </button>
+
+          {/* Favorite */}
           <button
             onClick={toggleFavorite}
-            className={`p-2 rounded-xl transition-colors ${isLightMode ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
-            title="Favorite"
+            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${btnHover}`}
           >
-            <Heart className={`w-5 h-5 transition-colors ${isFavorited ? 'fill-red-500 text-red-500 stroke-[2.5px]' : ''}`} />
+            <Heart className={`w-4 h-4 transition-colors ${isFavorited ? 'fill-red-500 text-red-500' : ''}`} />
           </button>
         </div>
       </header>
 
-      <main className="flex-1 px-6 py-8 overflow-y-auto max-w-[430px] mx-auto w-full select-text pb-28">
-        <div className="text-center mb-8 border-b pb-6 border-current/10">
-          <div className="inline-block px-4 py-1.5 rounded-full bg-yellow text-black font-sans font-extrabold text-base mb-4 shadow-sm">
+      {/* ── Hymn Content ─────────────────────────────────── */}
+      <main className="flex-1 px-6 py-8 max-w-[430px] mx-auto w-full select-text pb-32" role="main">
+        {/* Hymn Title Block */}
+        <div className={`text-center mb-10 pb-7 border-b ${borderColor}`}>
+          <div className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full mb-5 text-xs font-extrabold uppercase tracking-widest ${
+            isLightMode
+              ? 'bg-[#E5B83B]/15 text-[#8A6A00] border border-[#E5B83B]/30'
+              : 'bg-[#E5B83B]/10 text-[#E5B83B] border border-[#E5B83B]/20'
+          }`}>
             Hymn {song.songNumber}
           </div>
-          <h1 className="font-sans font-extrabold text-3xl leading-tight tracking-tight px-2">
+          <h1 className={`font-display font-extrabold text-2xl leading-tight tracking-tight px-2 ${isLightMode ? 'text-[#1C1B17]' : 'text-cream'}`}>
             {song.title}
           </h1>
           {song.category && (
-            <p className="text-xs font-extrabold uppercase tracking-widest opacity-55 mt-3">
+            <p className={`text-[10px] font-extrabold uppercase tracking-widest mt-3 ${isLightMode ? 'text-black/40' : 'text-cream/40'}`}>
               {song.category}
             </p>
           )}
         </div>
 
+        {/* Hymn Lyrics */}
         <div
-          className="space-y-8 font-sans leading-relaxed tracking-wide text-center"
+          className="space-y-7 font-sans leading-relaxed text-center"
           style={{ fontSize: `${fontSize}px` }}
+          aria-label="Hymn lyrics"
         >
           {sections.map((section, idx) => {
             const isChorus = section.type === 'chorus' || section.type === 'refrain';
             return (
               <div
                 key={`${section.order}-${idx}`}
-                className={`py-3 rounded-2xl transition-all duration-300 ${
+                className={`relative py-4 rounded-2xl transition-all duration-300 ${
                   isChorus
                     ? isLightMode
-                      ? 'bg-black/5 border-l-4 border-yellow px-4 font-bold text-center'
-                      : 'bg-white/5 border-l-4 border-yellow px-4 font-bold text-center'
-                    : ''
+                      ? 'bg-[#E5B83B]/[0.06] border-l-4 border-[#E5B83B] px-5 text-center font-semibold italic'
+                      : 'bg-[#E5B83B]/[0.05] border-l-4 border-[#E5B83B] px-5 text-center font-semibold italic'
+                    : 'px-2'
                 }`}
+                role="region"
+                aria-label={section.label}
               >
-                <p className="text-xs font-extrabold uppercase tracking-widest opacity-40 mb-3 select-none">
+                <p className={`text-[10px] font-extrabold uppercase tracking-widest mb-3 select-none ${
+                  isChorus ? 'text-[#E5B83B]' : isLightMode ? 'text-black/35' : 'text-cream/35'
+                }`}>
                   {section.label}
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {section.lines.map((line: string, lineIdx: number) => (
-                    <p key={lineIdx} className="min-h-[1.5em]">{line}</p>
+                    <p key={lineIdx} className="min-h-[1.5em] leading-relaxed">
+                      {line}
+                    </p>
                   ))}
                 </div>
               </div>
@@ -512,58 +585,63 @@ export function HymnDetailPage() {
         </div>
       </main>
 
-      <footer className={`fixed bottom-0 left-0 right-0 z-10 px-6 py-4 flex items-center justify-between border-t backdrop-blur-md max-w-[430px] mx-auto ${
-        isLightMode ? 'bg-[#FFFDF0]/90 border-black/10' : 'bg-[#140622]/90 border-white/10'
-      }`}>
+      {/* ── Footer: Navigation & Actions ─────────────────── */}
+      <footer
+        className={`fixed bottom-0 left-0 right-0 z-10 px-4 py-3 flex items-center justify-between border-t backdrop-blur-md max-w-[430px] mx-auto ${glassBg} ${borderColor}`}
+        role="contentinfo"
+      >
+        {/* Prev hymn */}
         {adjacent?.prev ? (
           <Link
             to={`/app/hymns/${adjacent.prev.id}`}
-            className={`flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-extrabold transition-all active:scale-95 ${
-              isLightMode ? 'bg-black/5 text-black hover:bg-black/10' : 'bg-white/5 text-cream hover:bg-white/10'
+            aria-label={`Previous hymn: ${adjacent.prev.songNumber}`}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
+              isLightMode ? 'bg-black/[0.05] text-[#1C1B17] hover:bg-black/[0.09]' : 'bg-white/[0.05] text-cream hover:bg-white/[0.09]'
             }`}
           >
             <ChevronLeft className="w-4 h-4" />
             <span>{adjacent.prev.songNumber}</span>
           </Link>
-        ) : (
-          <div className="w-16 h-9 opacity-0 pointer-events-none" />
-        )}
+        ) : <div className="w-16 h-9 opacity-0 pointer-events-none" />}
 
-        <div className="flex gap-4">
+        {/* Center actions */}
+        <div className="flex gap-3">
           <button
             onClick={handleCopy}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              isLightMode ? 'bg-black/5 text-black hover:bg-black/10' : 'bg-white/5 text-cream hover:bg-white/10'
+            aria-label="Copy lyrics to clipboard"
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+              isLightMode ? 'bg-black/[0.05] text-[#1C1B17] hover:bg-black/[0.09]' : 'bg-white/[0.05] text-cream hover:bg-white/[0.09]'
             }`}
-            title="Copy Lyrics"
           >
-            {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
+            {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
           </button>
           <button
             onClick={handleShare}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              isLightMode ? 'bg-black/5 text-black hover:bg-black/10' : 'bg-white/5 text-cream hover:bg-white/10'
+            aria-label="Share hymn"
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+              isLightMode ? 'bg-black/[0.05] text-[#1C1B17] hover:bg-black/[0.09]' : 'bg-white/[0.05] text-cream hover:bg-white/[0.09]'
             }`}
-            title="Share Hymn"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="w-4 h-4" />
           </button>
         </div>
 
+        {/* Next hymn */}
         {adjacent?.next ? (
           <Link
             to={`/app/hymns/${adjacent.next.id}`}
-            className={`flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-extrabold transition-all active:scale-95 ${
-              isLightMode ? 'bg-black/5 text-black hover:bg-black/10' : 'bg-white/5 text-cream hover:bg-white/10'
+            aria-label={`Next hymn: ${adjacent.next.songNumber}`}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
+              isLightMode ? 'bg-black/[0.05] text-[#1C1B17] hover:bg-black/[0.09]' : 'bg-white/[0.05] text-cream hover:bg-white/[0.09]'
             }`}
           >
             <span>{adjacent.next.songNumber}</span>
             <ChevronRight className="w-4 h-4" />
           </Link>
-        ) : (
-          <div className="w-16 h-9 opacity-0 pointer-events-none" />
-        )}
+        ) : <div className="w-16 h-9 opacity-0 pointer-events-none" />}
       </footer>
     </div>
   );
 }
+
+export default HymnDetailPage;
