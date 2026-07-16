@@ -1,23 +1,61 @@
 services:
+  # 1. Unified Node Web Service (Serving both Frontend and Backend API)
   - type: web
     name: morija-cantiques
-    env: node
+    runtime: node
     plan: free
-    region: oregon
-    autoDeploy: true
-    buildCommand: npm ci --include=dev && npm run build && npm run db:migrate && npm run hymns:validate && npm run hymns:import
-    startCommand: npm start
+    repo: https://github.com/ritekolo-cloud/morija-cantiques
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run db:migrate && npm run hymns:import && npm start
     healthCheckPath: /api/health
+    autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: morija-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      - key: CLIENT_URL
+        value: https://morija-cantiques.onrender.com
       - key: CORS_ORIGIN
         value: https://morija-cantiques.onrender.com
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: BCRYPT_ROUNDS
+        value: "12"
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "900000"
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "100"
       - key: LOG_LEVEL
         value: info
+      # Admin configuration (Uses secure defaults or generated value for password)
+      - key: ADMIN_NAME
+        value: Administrator
+      - key: ADMIN_EMAIL
+        value: admin@morijacantiques.com
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      # SMTP Configuration
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        value: "Morija-Cantiques <noreply@morijacantiques.com>"
+
+# 2. PostgreSQL Database Instance
+databases:
+  - name: morija-db
+    plan: free
