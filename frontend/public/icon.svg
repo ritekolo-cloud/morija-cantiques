@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title>Morija Cantiques</title>
+  <rect width="512" height="512" rx="96" fill="#24104f"/>
+  <path d="M96 132c0-18 15-33 33-33h83c24 0 44 20 44 44v238c0-24-20-44-44-44h-83c-18 0-33-15-33-33V132Z" fill="none" stroke="#fff000" stroke-width="28" stroke-linejoin="round"/>
+  <path d="M416 132c0-18-15-33-33-33h-83c-24 0-44 20-44 44v238c0-24 20-44 44-44h83c18 0 33-15 33-33V132Z" fill="none" stroke="#fff000" stroke-width="28" stroke-linejoin="round"/>
+  <path d="M256 145v239" stroke="#fff000" stroke-width="28" stroke-linecap="round"/>
+</svg>

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useCollectionSongs } from '../hooks/useHymns';
 import { useFavoritesStore } from '../store/favorites.store';
 import { Spinner } from '../components/ui/Spinner';
-import { ChevronLeft, ChevronRight, Search, Book, Heart, Globe } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Book, Heart, Globe, Search } from 'lucide-react';
 
 export function CollectionPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -17,7 +17,7 @@ export function CollectionPage() {
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-10rem)]">
         <Spinner />
-        <span className="text-xs text-cream/50 mt-4 uppercase tracking-[0.2em] font-bold">
+        <span className="text-xs text-[#6B6857] mt-4 uppercase tracking-[0.2em] font-bold">
           Loading Hymns...
         </span>
       </div>
@@ -27,8 +27,8 @@ export function CollectionPage() {
   if (error || !response?.success) {
     return (
       <div className="p-6 text-center mt-10">
-        <div className="p-6 bg-red-500/5 border border-red-500/15 rounded-2xl">
-          <p className="text-red-400 font-bold text-sm">Failed to load collection hymns.</p>
+        <div className="p-6 bg-red-50 border border-red-200 rounded-2xl">
+          <p className="text-red-600 font-bold text-sm">Failed to load collection hymns.</p>
         </div>
       </div>
     );
@@ -45,78 +45,76 @@ export function CollectionPage() {
   const langLabel = collection.languageName || collection.language || '';
 
   return (
-    <div className="pb-28 animate-fade-in">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-[#0d0119]/90 backdrop-blur-md border-b border-white/[0.04] px-6 py-4">
-        <div className="flex items-center gap-3">
+    <div className="space-y-6 animate-fade-in text-left">
+      {/* Header Bar */}
+      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white border border-[#E8E5D5] rounded-[24px] p-6 shadow-sm">
+        <div className="flex items-center gap-4">
           <Link
             to="/app/home"
             aria-label="Back to home"
-            className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/5 flex items-center justify-center text-cream/70 hover:bg-white/[0.08] hover:text-cream active:scale-95 transition-all"
+            className="w-10 h-10 rounded-xl bg-[#FAFAF5] border border-[#E8E5D5] flex items-center justify-center text-[#1A1A16]/70 hover:bg-[#E8E5D5]/50 hover:text-[#1A1A16] active:scale-95 transition-all"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-6 h-6" />
           </Link>
-          <div className="flex-1 min-w-0">
-            <h1 className="font-display font-extrabold text-xl text-cream leading-tight truncate">
+          <div className="min-w-0">
+            <h1 className="font-display font-extrabold text-2xl text-[#1A1A16] leading-tight truncate">
               {collection.name}
             </h1>
             {langLabel && (
-              <div className="flex items-center gap-1 mt-0.5">
-                <Globe className="w-3 h-3 text-cream/40" />
-                <span className="text-[9px] font-bold text-cream/40 uppercase tracking-widest">
+              <div className="flex items-center gap-1.5 mt-1">
+                <Globe className="w-3.5 h-3.5 text-[#E5B83B]" />
+                <span className="text-[10px] font-bold text-[#6B6857] uppercase tracking-widest">
                   {langLabel}
                 </span>
               </div>
             )}
           </div>
-          {/* Hymn count badge */}
-          <span className="shrink-0 text-[9px] font-extrabold px-2.5 py-1 rounded-full bg-[#E5B83B]/10 text-[#E5B83B] border border-[#E5B83B]/20 uppercase tracking-wider">
-            {meta?.total ?? songs?.length ?? 0} Hymns
-          </span>
         </div>
 
-        {/* Search Input */}
-        <div className="relative mt-4">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-cream/35" />
-          <input
-            type="text"
-            placeholder="Search by number or title…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search hymns"
-            className="w-full pl-10 pr-4 py-2.5 bg-white/[0.04] border border-white/[0.07] rounded-xl text-sm text-cream font-medium placeholder-cream/35 focus:outline-none focus:border-[#E5B83B]/50 focus:ring-1 focus:ring-[#E5B83B]/30 transition-all"
-          />
+        {/* Right Header Side: Info + Search */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <span className="self-start sm:self-auto shrink-0 text-[10px] font-extrabold px-3 py-1.5 rounded-full bg-[#E5B83B]/10 text-[#C59828] border border-[#E5B83B]/20 uppercase tracking-wider">
+            {meta?.total ?? songs?.length ?? 0} Hymns
+          </span>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A8A592]" />
+            <input
+              type="text"
+              placeholder="Search in this book..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search hymns"
+              className="w-full pl-10 pr-4 py-2.5 bg-[#FAFAF5] border border-[#E8E5D5] rounded-xl text-sm text-[#1A1A16] font-medium placeholder-[#A8A592] focus:outline-none focus:border-[#E5B83B] focus:ring-1 focus:ring-[#E5B83B]/30 transition-all"
+            />
+          </div>
         </div>
       </header>
 
-      {/* Songs List */}
-      <div className="px-6 pt-4">
+      {/* Songs List Grid */}
+      <div>
         {filteredSongs && filteredSongs.length > 0 ? (
-          <ul className="flex flex-col gap-2 mb-6" role="list" aria-label="Hymns list">
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6" role="list" aria-label="Hymns list">
             {filteredSongs.map((song: any) => {
               const isFav = favoriteIds.includes(song.id);
               return (
                 <li key={song.id} className="relative group">
                   <Link
                     to={`/app/hymns/${song.id}`}
-                    className="flex items-center gap-4 p-3.5 bg-white/[0.02] border border-white/[0.04] rounded-2xl hover:bg-white/[0.06] hover:border-white/[0.08] active:scale-[0.99] transition-all duration-150"
+                    className="flex items-center gap-4 p-4 bg-white border border-[#E8E5D5] rounded-2xl hover:border-[#E5B83B]/40 hover:bg-[#FAFAF5] active:scale-[0.99] transition-all duration-150 pr-16 shadow-sm"
                   >
                     {/* Hymn Number Badge */}
                     <div className="w-12 h-10 rounded-xl bg-[#E5B83B]/10 border border-[#E5B83B]/20 flex items-center justify-center shrink-0">
-                      <span className="font-sans font-extrabold text-xs text-[#E5B83B] leading-none">
+                      <span className="font-sans font-extrabold text-sm text-[#C59828] leading-none">
                         {song.songNumber}
                       </span>
                     </div>
 
                     {/* Hymn Title */}
                     <div className="text-left flex-1 min-w-0">
-                      <h3 className="font-sans font-semibold text-sm text-cream leading-snug truncate group-hover:text-[#E5B83B] transition-colors">
+                      <h3 className="font-sans font-semibold text-sm md:text-base text-[#1A1A16] leading-snug truncate group-hover:text-[#C59828] transition-colors">
                         {song.title}
                       </h3>
                     </div>
-
-                    {/* Chevron */}
-                    <ChevronRight className="w-4 h-4 text-cream/15 group-hover:text-cream/40 transition-colors shrink-0" />
                   </Link>
 
                   {/* Favorite toggle overlaid on the right side */}
@@ -127,10 +125,10 @@ export function CollectionPage() {
                       isFav ? removeFavorite(song.id) : addFavorite(song.id);
                     }}
                     aria-label={isFav ? `Remove ${song.title} from favorites` : `Add ${song.title} to favorites`}
-                    className="absolute right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-cream/20 hover:text-red-400 transition-colors z-10"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 rounded-xl hover:bg-[#FAFAF5] border border-transparent hover:border-[#E8E5D5] flex items-center justify-center text-[#A8A592] hover:text-[#B91C1C] transition-colors z-10"
                   >
                     <Heart
-                      className={`w-4 h-4 transition-colors ${isFav ? 'fill-red-500 text-red-500' : ''}`}
+                      className={`w-4.5 h-4.5 transition-colors ${isFav ? 'fill-[#B91C1C] text-[#B91C1C]' : ''}`}
                       strokeWidth={2}
                     />
                   </button>
@@ -139,7 +137,7 @@ export function CollectionPage() {
             })}
           </ul>
         ) : (
-          <div className="py-16 text-center text-cream/30">
+          <div className="py-16 text-center text-[#A8A592] bg-white border border-[#E8E5D5] rounded-2xl">
             <Book className="w-12 h-12 mx-auto mb-3 opacity-20" />
             <p className="font-medium text-sm">No hymns match your search.</p>
           </div>
@@ -147,26 +145,26 @@ export function CollectionPage() {
 
         {/* Pagination Controls */}
         {meta && meta.totalPages > 1 && (
-          <div className="flex items-center justify-between mb-8 p-3 bg-white/[0.02] border border-white/[0.04] rounded-2xl">
+          <div className="flex items-center justify-between mt-6 p-4 bg-white border border-[#E8E5D5] rounded-2xl shadow-sm">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={!meta.hasPrev}
               aria-label="Previous page"
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06] text-xs font-bold text-cream hover:bg-white/[0.08] disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#FAFAF5] border border-[#E8E5D5] text-xs font-bold text-[#1A1A16] hover:bg-[#E8E5D5]/35 disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all"
             >
               <ChevronLeft className="w-4 h-4" />
               Prev
             </button>
 
-            <span className="text-[10px] font-bold text-cream/50 uppercase tracking-widest">
-              {meta.page} / {meta.totalPages}
+            <span className="text-xs font-extrabold text-[#6B6857] uppercase tracking-widest">
+              Page {meta.page} of {meta.totalPages}
             </span>
 
             <button
               onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
               disabled={!meta.hasNext}
               aria-label="Next page"
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06] text-xs font-bold text-cream hover:bg-white/[0.08] disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#FAFAF5] border border-[#E8E5D5] text-xs font-bold text-[#1A1A16] hover:bg-[#E8E5D5]/35 disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all"
             >
               Next
               <ChevronRight className="w-4 h-4" />

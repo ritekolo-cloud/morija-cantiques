@@ -1,45 +1,56 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useHymnSearch } from '../hooks/useHymns';
 import { Spinner } from '../components/ui/Spinner';
-import { Search, X } from 'lucide-react';
+import { Search, X, ChevronRight } from 'lucide-react';
 
 const SCOPES = ['all', 'title', 'number', 'lyrics'] as const;
 type Scope = typeof SCOPES[number];
 
 const SCOPE_LABELS: Record<Scope, string> = {
-  all: 'All',
+  all: 'All Fields',
   title: 'Title',
-  number: '#',
+  number: 'Number',
   lyrics: 'Lyrics',
 };
 
 export function SearchPage() {
-  const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get('q') || '';
+
+  const [query, setQuery] = useState(initialQuery);
   const [scope, setScope] = useState<Scope>('all');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: songs, isLoading, isError } = useHymnSearch(query, scope);
 
-  // Auto-focus on mount
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
+  // Sync query to URL params
+  useEffect(() => {
+    if (query.trim().length > 1) {
+      setSearchParams({ q: query }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  }, [query]);
+
   return (
-    <div className="pb-28 animate-fade-in">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-[#0d0119]/90 backdrop-blur-md border-b border-white/[0.04] px-6 py-4">
-        <div className="mb-4">
-          <h1 className="font-display font-extrabold text-xl text-cream leading-tight">Search</h1>
-          <p className="text-[9px] font-bold text-cream/40 uppercase tracking-widest mt-0.5">
+    <div className="space-y-6 animate-fade-in text-left">
+      {/* Page Header */}
+      <header className="bg-white border border-[#E8E5D5] rounded-[24px] p-6 shadow-sm">
+        <div className="space-y-1 mb-5">
+          <h1 className="font-display font-extrabold text-2xl text-[#1A1A16] leading-tight">Search Hymns</h1>
+          <p className="text-xs font-bold text-[#A8A592] uppercase tracking-widest">
             Find hymns across all collections
           </p>
         </div>
 
         {/* Search Input */}
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-cream/40" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#A8A592]" />
           <input
             ref={inputRef}
             type="text"
@@ -47,30 +58,30 @@ export function SearchPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search hymns"
-            className="w-full pl-10 pr-10 py-2.5 bg-white/[0.04] border border-white/[0.07] rounded-xl text-sm text-cream font-medium placeholder-cream/35 focus:outline-none focus:border-[#E5B83B]/50 focus:ring-1 focus:ring-[#E5B83B]/30 transition-all"
+            className="w-full pl-12 pr-10 py-3.5 bg-[#FAFAF5] border border-[#E8E5D5] rounded-xl text-sm text-[#1A1A16] font-medium placeholder-[#A8A592] focus:outline-none focus:border-[#E5B83B] focus:ring-1 focus:ring-[#E5B83B]/30 transition-all"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
               aria-label="Clear search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-cream/60 hover:bg-white/20 transition-all"
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#E8E5D5] hover:bg-[#D4D0BC] flex items-center justify-center text-[#6B6857] transition-all"
             >
-              <X className="w-3 h-3" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
         {/* Scope Filter Pills */}
-        <div className="flex gap-2 mt-3" role="group" aria-label="Search scope">
+        <div className="flex flex-wrap gap-2 mt-4" role="group" aria-label="Search scope">
           {SCOPES.map((tab) => (
             <button
               key={tab}
               onClick={() => setScope(tab)}
               aria-pressed={scope === tab}
-              className={`px-4 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border transition-all ${
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border transition-all ${
                 scope === tab
-                  ? 'bg-[#E5B83B]/15 border-[#E5B83B]/40 text-[#E5B83B]'
-                  : 'bg-white/[0.03] border-white/[0.06] text-cream/50 hover:bg-white/[0.07]'
+                  ? 'bg-[#E5B83B]/10 border-[#E5B83B]/40 text-[#C59828]'
+                  : 'bg-[#FAFAF5] border-[#E8E5D5] text-[#6B6857] hover:bg-[#E8E5D5]/35'
               }`}
             >
               {SCOPE_LABELS[tab]}
@@ -80,19 +91,19 @@ export function SearchPage() {
       </header>
 
       {/* Results */}
-      <div className="px-6 pt-4">
+      <div>
         {isLoading ? (
           <div className="flex justify-center items-center py-16">
             <Spinner />
           </div>
         ) : query.length <= 1 ? (
-          <div className="py-16 text-center text-cream/30">
-            <Search className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p className="font-medium text-sm text-cream/40">Type at least 2 characters to search.</p>
+          <div className="py-20 text-center bg-white border border-[#E8E5D5] rounded-[24px]">
+            <Search className="w-12 h-12 mx-auto mb-4 text-[#E5B83B]/30" />
+            <p className="font-semibold text-sm text-[#6B6857]">Type at least 2 characters to search.</p>
           </div>
         ) : isError ? (
-          <div className="p-5 bg-red-500/5 border border-red-500/15 rounded-2xl text-center mt-4">
-            <p className="text-red-400 font-bold text-sm">Search failed. Please try again.</p>
+          <div className="p-6 bg-red-50 border border-red-200 rounded-[24px] text-center">
+            <p className="text-red-600 font-bold text-sm">Search failed. Please try again.</p>
           </div>
         ) : songs?.data && songs.data.length > 0 ? (
           <ul className="flex flex-col gap-2" role="list" aria-label="Search results">
@@ -102,32 +113,33 @@ export function SearchPage() {
                 <li key={song.id}>
                   <Link
                     to={`/app/hymns/${song.id}`}
-                    className="flex items-center gap-4 p-3.5 bg-white/[0.02] border border-white/[0.04] rounded-2xl hover:bg-white/[0.06] hover:border-white/[0.08] active:scale-[0.99] transition-all duration-150 group"
+                    className="flex items-center gap-4 p-4 bg-white border border-[#E8E5D5] rounded-2xl hover:border-[#E5B83B]/40 hover:bg-[#FFFDF5] active:scale-[0.99] transition-all duration-150 group shadow-sm"
                   >
                     <div className="w-12 h-10 rounded-xl bg-[#E5B83B]/10 border border-[#E5B83B]/20 flex items-center justify-center shrink-0">
-                      <span className="font-sans font-extrabold text-xs text-[#E5B83B] leading-none">
+                      <span className="font-sans font-extrabold text-sm text-[#C59828] leading-none">
                         {song.songNumber}
                       </span>
                     </div>
                     <div className="text-left flex-1 min-w-0">
-                      <h3 className="font-sans font-semibold text-sm text-cream leading-snug truncate group-hover:text-[#E5B83B] transition-colors">
+                      <h3 className="font-sans font-semibold text-sm text-[#1A1A16] leading-snug truncate group-hover:text-[#C59828] transition-colors">
                         {song.title}
                       </h3>
-                      <p className="text-[9px] font-bold text-cream/40 uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
+                      <p className="text-[9px] font-bold text-[#6B6857] uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
                         <span>{song.collection?.name || 'Hymnal'}</span>
                         {song.category && (<><span>·</span><span>{song.category}</span></>)}
                       </p>
                     </div>
+                    <ChevronRight className="w-4 h-4 text-[#A8A592] group-hover:text-[#6B6857] shrink-0 transition-colors" />
                   </Link>
                 </li>
               );
             })}
           </ul>
         ) : (
-          <div className="py-16 text-center text-cream/30">
-            <Search className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p className="font-medium text-sm text-cream/40">No results for "{query}".</p>
-            <p className="text-xs mt-1 text-cream/25">Try a different keyword or scope.</p>
+          <div className="py-20 text-center bg-white border border-[#E8E5D5] rounded-[24px]">
+            <Search className="w-12 h-12 mx-auto mb-4 text-[#E5B83B]/30" />
+            <p className="font-semibold text-sm text-[#6B6857]">No results for "{query}".</p>
+            <p className="text-xs mt-1 text-[#A8A592]">Try a different keyword or scope.</p>
           </div>
         )}
       </div>

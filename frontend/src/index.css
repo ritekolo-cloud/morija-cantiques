@@ -7,13 +7,13 @@
   --font-inter: "Inter", system-ui, sans-serif;
   --font-display: "Playfair Display", Georgia, serif;
 
-  /* Brand Colors */
-  --color-cream: #FFFDF0;
-  --color-black: #0A0A08;
+  /* Brand Colors — Yellow / Black / White */
+  --color-cream: #FFFDF5;
+  --color-black: #1A1A16;
   --color-yellow: #E5B83B;
   --color-gold: #E5B83B;
-  --color-dark-purple: #0D0714;
-  --color-dark-purple-light: #180826;
+  --color-sidebar: #1A1A16;
+  --color-sidebar-hover: #2A2A24;
 }
 
 @layer base {
@@ -22,14 +22,18 @@
   }
 
   body {
-    @apply bg-dark-purple text-cream font-inter selection:bg-yellow selection:text-black;
+    @apply bg-[#FAFAF5] text-[#1A1A16] font-inter selection:bg-yellow selection:text-black;
     font-family: var(--font-inter, "Inter", system-ui, sans-serif);
   }
 
-  /* Hide scrollbar for clean app-like feel */
+  /* Thin scrollbar for clean look */
   ::-webkit-scrollbar {
-    width: 0px;
+    width: 5px;
     background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #D4D0BC;
+    border-radius: 9999px;
   }
 }
 

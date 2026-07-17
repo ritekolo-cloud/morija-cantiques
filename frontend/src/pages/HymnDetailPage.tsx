@@ -79,77 +79,141 @@ function sectionWeight(section: ProjectionSection) {
   ), 2.4);
 }
 
-function splitOneSection(section: ProjectionSection): [ProjectionSection[], ProjectionSection[]] {
-  const midpoint = Math.ceil(section.lines.length / 2);
-  return [
-    [{ ...section, lines: section.lines.slice(0, midpoint) }],
-    [{ ...section, label: '', lines: section.lines.slice(midpoint) }],
-  ];
-}
-
 function splitProjectionColumns(sections: ProjectionSection[]) {
-  if (sections.length === 0) return [[], []] as [ProjectionSection[], ProjectionSection[]];
-  if (sections.length === 1 && sections[0].lines.length > 8) return splitOneSection(sections[0]);
-  if (sections.length === 1) return [sections, []] as [ProjectionSection[], ProjectionSection[]];
+  const totalLines = sections.reduce((sum, s) => sum + s.lines.length, 0);
 
-  const weights = sections.map(sectionWeight);
-  const total = weights.reduce((sum, weight) => sum + weight, 0);
-  let bestSplit = 1;
-  let bestDiff = Number.POSITIVE_INFINITY;
-  let leftWeight = 0;
-
-  for (let index = 1; index < sections.length; index += 1) {
-    leftWeight += weights[index - 1];
-    const diff = Math.abs(total - leftWeight * 2);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      bestSplit = index;
-    }
+  // 1-column layout for short hymns
+  if (totalLines <= 7) {
+    return [sections, [], []] as [ProjectionSection[], ProjectionSection[], ProjectionSection[]];
   }
 
-  return [sections.slice(0, bestSplit), sections.slice(bestSplit)] as [ProjectionSection[], ProjectionSection[]];
+  // 3-column layout for exceptionally long/multi-verse hymns
+  if (totalLines > 14 || sections.length >= 3) {
+    const col1: ProjectionSection[] = [];
+    const col2: ProjectionSection[] = [];
+    const col3: ProjectionSection[] = [];
+    
+    const weights = sections.map(sectionWeight);
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    const targetWeight = totalWeight / 3;
+    
+    let currentWeight = 0;
+    for (let i = 0; i < sections.length; i++) {
+      if (currentWeight < targetWeight) {
+        col1.push(sections[i]);
+      } else if (currentWeight < targetWeight * 2) {
+        col2.push(sections[i]);
+      } else {
+        col3.push(sections[i]);
+      }
+      currentWeight += weights[i];
+    }
+    
+    // Safety checks for balance
+    if (col2.length === 0 && col1.length > 1) {
+      col2.push(col1.pop()!);
+    }
+    if (col3.length === 0 && col2.length > 1) {
+      col3.push(col2.pop()!);
+    }
+    
+    return [col1, col2, col3] as [ProjectionSection[], ProjectionSection[], ProjectionSection[]];
+  }
+
+  // 2-column layout (default)
+  // If only 1 section that is medium length, split it down the middle
+  if (sections.length === 1) {
+    const sec = sections[0];
+    const midpoint = Math.ceil(sec.lines.length / 2);
+    return [
+      [{ ...sec, lines: sec.lines.slice(0, midpoint) }],
+      [{ ...sec, label: '', lines: sec.lines.slice(midpoint) }],
+      []
+    ] as [ProjectionSection[], ProjectionSection[], ProjectionSection[]];
+  }
+
+  // Split 2 sections into 2 columns
+  const col1: ProjectionSection[] = [];
+  const col2: ProjectionSection[] = [];
+  const weights = sections.map(sectionWeight);
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  const targetWeight = totalWeight / 2;
+  
+  let currentWeight = 0;
+  for (let i = 0; i < sections.length; i++) {
+    if (currentWeight + weights[i] / 2 < targetWeight) {
+      col1.push(sections[i]);
+    } else {
+      col2.push(sections[i]);
+    }
+    currentWeight += weights[i];
+  }
+  
+  if (col2.length === 0 && col1.length > 1) {
+    col2.push(col1.pop()!);
+  }
+  
+  return [col1, col2, []] as [ProjectionSection[], ProjectionSection[], ProjectionSection[]];
 }
 
 function estimateFontSize(
-  columns: [ProjectionSection[], ProjectionSection[]],
+  columns: [ProjectionSection[], ProjectionSection[], ProjectionSection[]],
   viewport: { width: number; height: number },
   controlsVisible: boolean,
   zoom: number
 ) {
   const availableHeight = Math.max(260, viewport.height - (controlsVisible ? 168 : 48));
-  const availableWidth = Math.max(320, viewport.width - 80);
-  const columnWidth = Math.max(140, availableWidth / 2 - 24);
-  const columnWeights = columns.map((column) => column.reduce((sum, section) => sum + sectionWeight(section), 0));
-  const longestLine = columns.flat(2).reduce((longest, section) => {
-    const sectionLongest = section.lines.reduce((max, line) => Math.max(max, line.length), section.label.length);
-    return Math.max(longest, sectionLongest);
+  const activeCols = columns.filter(col => col.length > 0).length || 1;
+  
+  let horizontalMarginMultiplier = 0.54; // default (2 cols)
+  if (activeCols === 1) {
+    horizontalMarginMultiplier = 0.45; // narrow center
+  } else if (activeCols === 3) {
+    horizontalMarginMultiplier = 0.78; // wider screen usage
+  }
+  
+  const availableWidth = Math.max(320, viewport.width * horizontalMarginMultiplier);
+  const columnWidth = Math.max(140, availableWidth / activeCols - 24);
+  
+  const columnWeights = columns.map((col) => col.reduce((sum, sec) => sum + sectionWeight(sec), 0));
+  const maxWeight = Math.max(...columnWeights, 1);
+  
+  const longestLine = columns.flat(2).reduce((longest, sec) => {
+    const maxLine = sec.lines.reduce((max, line) => Math.max(max, line.length), sec.label.length);
+    return Math.max(longest, maxLine);
   }, 1);
-  const heightLimited = availableHeight / (Math.max(...columnWeights, 1) * 1.18);
+
+  const heightLimited = availableHeight / (maxWeight * 1.18);
   const widthLimited = columnWidth / Math.max(1, longestLine * 0.54);
-  const preferred = PROJECTOR_MAX_FONT * zoom;
+  
+  let preferred = PROJECTOR_MAX_FONT;
+  if (activeCols === 1) preferred = 50;
+  else if (activeCols === 3) preferred = 30;
+  
+  preferred = preferred * zoom;
 
   return clamp(Math.floor(Math.min(preferred, heightLimited, widthLimited)), PROJECTOR_MIN_FONT, PROJECTOR_MAX_FONT);
 }
 
 function ProjectionColumn({ sections, fontSize }: { sections: ProjectionSection[]; fontSize: number }) {
   return (
-    <div className="min-w-0 flex flex-col justify-center gap-[0.75em]">
+    <div className="min-w-0 flex flex-col justify-center gap-[0.7em]">
       {sections.map((section, sectionIndex) => {
         const isChorus = section.type === 'chorus' || section.type === 'refrain';
         return (
           <section
             key={`${section.order}-${section.label}-${sectionIndex}`}
-            className={isChorus ? 'border-l-4 border-[#E5B83B] pl-[0.65em]' : undefined}
+            className={isChorus ? 'border-l-4 border-[#9e2a1b] pl-[0.7em]' : undefined}
           >
             {section.label && (
               <p
-                className="mb-[0.4em] font-extrabold uppercase text-[#E5B83B]/70"
-                style={{ fontSize: `${Math.max(8, fontSize * 0.42)}px`, letterSpacing: 0 }}
+                className="mb-[0.3em] font-extrabold uppercase text-[#9e2a1b]/80"
+                style={{ fontSize: `${Math.max(10, fontSize * 0.42)}px`, letterSpacing: '0.05em' }}
               >
                 {section.label}
               </p>
             )}
-            <div className={isChorus ? 'font-bold text-cream' : 'font-semibold text-cream/90'}>
+            <div className={isChorus ? 'font-bold text-[#9e2a1b]' : 'font-extrabold text-[#1b0a00]'}>
               {section.lines.map((line, lineIndex) => (
                 <p key={lineIndex} className="min-h-[1.05em] break-words">
                   {line || ' '}
@@ -176,7 +240,7 @@ export function HymnDetailPage() {
   const { addRecent } = useRecentStore();
 
   const [fontSize, setFontSize] = useState(18);
-  const [isLightMode, setIsLightMode] = useState(false);
+  const [isLightMode, setIsLightMode] = useState(true);
   const [copied, setCopied] = useState(false);
   const [isProjecting, setIsProjecting] = useState(false);
   const [projectorControlsVisible, setProjectorControlsVisible] = useState(true);
@@ -343,10 +407,16 @@ export function HymnDetailPage() {
   if (isProjecting) {
     return (
       <div
-        className="fixed inset-0 z-[100] overflow-hidden bg-[#050505] text-cream select-none"
+        className="fixed inset-0 z-[100] overflow-hidden bg-yellow-400 text-[#1b0a00] select-none"
         onClick={handleProjectionClick}
         onDoubleClick={handleProjectionDoubleClick}
-        style={{ cursor: projectorControlsVisible ? 'default' : 'none' }}
+        style={{
+          cursor: projectorControlsVisible ? 'default' : 'none',
+          backgroundImage: `url('/bg-worship.png')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
       >
         <header
           className={`absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-6 py-4 bg-black/70 backdrop-blur-md border-b border-white/10 transition-opacity duration-200 ${projectorControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
@@ -366,19 +436,47 @@ export function HymnDetailPage() {
         </header>
 
         <main
-          className="h-dvh w-screen overflow-hidden grid grid-cols-2"
+          className={`h-dvh w-screen overflow-hidden grid ${
+            projectionColumns.filter(c => c.length > 0).length === 1
+              ? 'grid-cols-1'
+              : projectionColumns.filter(c => c.length > 0).length === 3
+              ? 'grid-cols-3'
+              : 'grid-cols-2'
+          }`}
           style={{
-            gap: `${Math.max(24, viewport.width * 0.035)}px`,
             paddingTop: projectorControlsVisible ? 92 : 28,
             paddingBottom: projectorControlsVisible ? 112 : 28,
-            paddingLeft: Math.max(28, viewport.width * 0.045),
-            paddingRight: Math.max(28, viewport.width * 0.045),
+            paddingLeft:
+              projectionColumns.filter(c => c.length > 0).length === 1
+                ? '24%'
+                : projectionColumns.filter(c => c.length > 0).length === 3
+                ? '16%'
+                : '32%',
+            paddingRight:
+              projectionColumns.filter(c => c.length > 0).length === 1
+                ? '24%'
+                : projectionColumns.filter(c => c.length > 0).length === 3
+                ? '10%'
+                : '14%',
+            gap:
+              projectionColumns.filter(c => c.length > 0).length === 1
+                ? '0px'
+                : projectionColumns.filter(c => c.length > 0).length === 3
+                ? '6%'
+                : '10%',
             fontSize: `${projectorFontSize}px`,
             lineHeight: 1.12,
           }}
         >
-          <ProjectionColumn sections={projectionColumns[0]} fontSize={projectorFontSize} />
-          <ProjectionColumn sections={projectionColumns[1]} fontSize={projectorFontSize} />
+          {projectionColumns[0] && projectionColumns[0].length > 0 && (
+            <ProjectionColumn sections={projectionColumns[0]} fontSize={projectorFontSize} />
+          )}
+          {projectionColumns[1] && projectionColumns[1].length > 0 && (
+            <ProjectionColumn sections={projectionColumns[1]} fontSize={projectorFontSize} />
+          )}
+          {projectionColumns[2] && projectionColumns[2].length > 0 && (
+            <ProjectionColumn sections={projectionColumns[2]} fontSize={projectorFontSize} />
+          )}
         </main>
 
         <footer
@@ -429,14 +527,22 @@ export function HymnDetailPage() {
 
   // ─── Reader Mode ─────────────────────────────────────────
   // Theme classes
-  const bg = isLightMode ? 'bg-[#FDFBF7]' : 'bg-[#0D0714]';
-  const textPrimary = isLightMode ? 'text-[#1C1B17]' : 'text-[#EADECA]';
-  const borderColor = isLightMode ? 'border-black/8' : 'border-white/[0.06]';
-  const glassBg = isLightMode ? 'bg-[#FDFBF7]/90' : 'bg-[#0D0714]/90';
-  const btnHover = isLightMode ? 'hover:bg-black/[0.05]' : 'hover:bg-white/[0.06]';
+  const textPrimary = isLightMode ? 'text-[#1A1A16]' : 'text-[#2A2A24]';
+  const borderColor = isLightMode ? 'border-[#E8E5D5]' : 'border-[#D4D0BC]';
+  const glassBg = isLightMode ? 'bg-[#FFFDF5]/90 backdrop-blur-md' : 'bg-[#FAFAF5]/90 backdrop-blur-md';
+  const btnHover = isLightMode ? 'hover:bg-[#E8E5D5]/50' : 'hover:bg-black/[0.04]';
 
   return (
-    <div className={`min-h-screen flex flex-col transition-all duration-300 ${bg} ${textPrimary}`}>
+    <div
+      className={`min-h-screen flex flex-col transition-all duration-300 ${textPrimary}`}
+      style={{
+        backgroundImage: `radial-gradient(circle, rgba(255, 253, 245, 0.72) 0%, rgba(250, 250, 245, 0.88) 100%), url('/bg-worship.png')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
 
       {/* ── Sticky Header / Controls ─────────────────────── */}
       <header
@@ -526,68 +632,64 @@ export function HymnDetailPage() {
       </header>
 
       {/* ── Hymn Content ─────────────────────────────────── */}
-      <main className="flex-1 px-6 py-8 max-w-[430px] mx-auto w-full select-text pb-32" role="main">
-        {/* Hymn Title Block */}
-        <div className={`text-center mb-10 pb-7 border-b ${borderColor}`}>
-          <div className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full mb-5 text-xs font-extrabold uppercase tracking-widest ${
-            isLightMode
-              ? 'bg-[#E5B83B]/15 text-[#8A6A00] border border-[#E5B83B]/30'
-              : 'bg-[#E5B83B]/10 text-[#E5B83B] border border-[#E5B83B]/20'
-          }`}>
-            Hymn {song.songNumber}
+      <main className="flex-1 px-4 py-8 max-w-3xl mx-auto w-full select-text pb-36" role="main">
+        <div className="bg-white/95 border border-[#E8E5D5] rounded-[28px] p-8 md:p-12 shadow-md">
+          {/* Hymn Title Block */}
+          <div className="text-center mb-10 pb-7 border-b border-[#E8E5D5]">
+            <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full mb-5 text-xs font-extrabold uppercase tracking-widest bg-[#E5B83B]/10 text-[#C59828] border border-[#E5B83B]/20">
+              Hymn {song.songNumber}
+            </div>
+            <h1 className="font-display font-extrabold text-3xl leading-tight tracking-tight text-[#1A1A16] px-2">
+              {song.title}
+            </h1>
+            {song.category && (
+              <p className="text-[10px] font-extrabold uppercase tracking-widest mt-3 text-[#6B6857]">
+                {song.category}
+              </p>
+            )}
           </div>
-          <h1 className={`font-display font-extrabold text-2xl leading-tight tracking-tight px-2 ${isLightMode ? 'text-[#1C1B17]' : 'text-cream'}`}>
-            {song.title}
-          </h1>
-          {song.category && (
-            <p className={`text-[10px] font-extrabold uppercase tracking-widest mt-3 ${isLightMode ? 'text-black/40' : 'text-cream/40'}`}>
-              {song.category}
-            </p>
-          )}
-        </div>
 
-        {/* Hymn Lyrics */}
-        <div
-          className="space-y-7 font-sans leading-relaxed text-center"
-          style={{ fontSize: `${fontSize}px` }}
-          aria-label="Hymn lyrics"
-        >
-          {sections.map((section, idx) => {
-            const isChorus = section.type === 'chorus' || section.type === 'refrain';
-            return (
-              <div
-                key={`${section.order}-${idx}`}
-                className={`relative py-4 rounded-2xl transition-all duration-300 ${
-                  isChorus
-                    ? isLightMode
-                      ? 'bg-[#E5B83B]/[0.06] border-l-4 border-[#E5B83B] px-5 text-center font-semibold italic'
-                      : 'bg-[#E5B83B]/[0.05] border-l-4 border-[#E5B83B] px-5 text-center font-semibold italic'
-                    : 'px-2'
-                }`}
-                role="region"
-                aria-label={section.label}
-              >
-                <p className={`text-[10px] font-extrabold uppercase tracking-widest mb-3 select-none ${
-                  isChorus ? 'text-[#E5B83B]' : isLightMode ? 'text-black/35' : 'text-cream/35'
-                }`}>
-                  {section.label}
-                </p>
-                <div className="space-y-1.5">
-                  {section.lines.map((line: string, lineIdx: number) => (
-                    <p key={lineIdx} className="min-h-[1.5em] leading-relaxed">
-                      {line}
-                    </p>
-                  ))}
+          {/* Hymn Lyrics */}
+          <div
+            className="space-y-7 font-sans leading-relaxed text-center"
+            style={{ fontSize: `${fontSize}px` }}
+            aria-label="Hymn lyrics"
+          >
+            {sections.map((section, idx) => {
+              const isChorus = section.type === 'chorus' || section.type === 'refrain';
+              return (
+                <div
+                  key={`${section.order}-${idx}`}
+                  className={`relative py-4 rounded-2xl transition-all duration-300 ${
+                    isChorus
+                      ? 'bg-[#E5B83B]/[0.05] border-l-4 border-[#E5B83B] px-5 text-center font-semibold italic'
+                      : 'px-2'
+                  }`}
+                  role="region"
+                  aria-label={section.label}
+                >
+                  <p className={`text-[10px] font-extrabold uppercase tracking-widest mb-3 select-none ${
+                    isChorus ? 'text-[#C59828]' : 'text-[#A8A592]'
+                  }`}>
+                    {section.label}
+                  </p>
+                  <div className={`space-y-1.5 ${isChorus ? 'text-[#9e2a1b] font-medium' : 'text-[#1A1A16]'}`}>
+                    {section.lines.map((line: string, lineIdx: number) => (
+                      <p key={lineIdx} className="min-h-[1.5em] leading-relaxed">
+                        {line}
+                      </p>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </main>
 
       {/* ── Footer: Navigation & Actions ─────────────────── */}
       <footer
-        className={`fixed bottom-0 left-0 right-0 z-10 px-4 py-3 flex items-center justify-between border-t backdrop-blur-md max-w-[430px] mx-auto ${glassBg} ${borderColor}`}
+        className={`fixed bottom-0 left-0 right-0 md:left-64 z-10 px-4 py-3 flex items-center justify-between border-t backdrop-blur-md max-w-3xl mx-auto ${glassBg} ${borderColor}`}
         role="contentinfo"
       >
         {/* Prev hymn */}
@@ -595,9 +697,7 @@ export function HymnDetailPage() {
           <Link
             to={`/app/hymns/${adjacent.prev.id}`}
             aria-label={`Previous hymn: ${adjacent.prev.songNumber}`}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
-              isLightMode ? 'bg-black/[0.05] text-[#1C1B17] hover:bg-black/[0.09]' : 'bg-white/[0.05] text-cream hover:bg-white/[0.09]'
-            }`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-[#FAFAF5] text-[#1A1A16] hover:bg-[#E8E5D5]/50 border border-[#E8E5D5]"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>{adjacent.prev.songNumber}</span>
@@ -609,18 +709,14 @@ export function HymnDetailPage() {
           <button
             onClick={handleCopy}
             aria-label="Copy lyrics to clipboard"
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-              isLightMode ? 'bg-black/[0.05] text-[#1C1B17] hover:bg-black/[0.09]' : 'bg-white/[0.05] text-cream hover:bg-white/[0.09]'
-            }`}
+            className="w-9 h-9 rounded-full flex items-center justify-center transition-all bg-[#FAFAF5] text-[#1A1A16] hover:bg-[#E8E5D5]/50 border border-[#E8E5D5]"
           >
-            {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+            {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
           </button>
           <button
             onClick={handleShare}
             aria-label="Share hymn"
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-              isLightMode ? 'bg-black/[0.05] text-[#1C1B17] hover:bg-black/[0.09]' : 'bg-white/[0.05] text-cream hover:bg-white/[0.09]'
-            }`}
+            className="w-9 h-9 rounded-full flex items-center justify-center transition-all bg-[#FAFAF5] text-[#1A1A16] hover:bg-[#E8E5D5]/50 border border-[#E8E5D5]"
           >
             <Share2 className="w-4 h-4" />
           </button>
@@ -631,9 +727,7 @@ export function HymnDetailPage() {
           <Link
             to={`/app/hymns/${adjacent.next.id}`}
             aria-label={`Next hymn: ${adjacent.next.songNumber}`}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 ${
-              isLightMode ? 'bg-black/[0.05] text-[#1C1B17] hover:bg-black/[0.09]' : 'bg-white/[0.05] text-cream hover:bg-white/[0.09]'
-            }`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all active:scale-95 bg-[#FAFAF5] text-[#1A1A16] hover:bg-[#E8E5D5]/50 border border-[#E8E5D5]"
           >
             <span>{adjacent.next.songNumber}</span>
             <ChevronRight className="w-4 h-4" />
