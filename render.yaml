@@ -15,7 +15,8 @@ services:
     buildCommand: >-
       npm install --include=dev &&
       npx prisma generate --schema=backend/prisma/schema.prisma &&
-      npm run build &&
+      npm run build
+    preDeployCommand: >-
       npx prisma migrate deploy --schema=backend/prisma/schema.prisma &&
       node backend/scripts/import-hymns.mjs
     # Start: simply launch the compiled server — no heavy work at runtime
@@ -26,8 +27,6 @@ services:
       # ── Runtime ──────────────────────────────────────────────────
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: "5000"
 
       # ── Database ─────────────────────────────────────────────────
       - key: DATABASE_URL
