@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev -r dotenv/config --respawn --transpile-only -r tsconfig-paths/register src/server.ts",
-    "build": "tsc",
+    "build": "tsc && npm run build --workspace=@morija/frontend",
     "start": "node -r module-alias/register dist/server.js",
 
     "prisma:generate": "prisma generate",
