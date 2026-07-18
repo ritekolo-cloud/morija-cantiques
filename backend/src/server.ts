@@ -53,11 +53,34 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api', apiRoutes);
 
 if (env.isProd) {
-  const frontendDist = path.resolve(__dirname, '../../frontend/dist');
-  app.use(express.static(frontendDist));
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(frontendDist, 'index.html'));
-  });
+  // Try multiple possible paths for the frontend dist folder.
+  // On Render: /opt/render/project/src/frontend/dist
+  // Locally:   <repo-root>/frontend/dist
+  const candidatePaths = [
+    path.resolve(__dirname, '../../frontend/dist'),   // backend/dist -> frontend/dist
+    path.resolve(__dirname, '../../../frontend/dist'), // extra nesting
+    path.resolve(process.cwd(), 'frontend/dist'),      // from cwd
+    path.resolve(process.cwd(), '../frontend/dist'),   // one up from cwd
+  ];
+
+  const frontendDist = candidatePaths.find(p => fs.existsSync(p));
+
+  if (frontendDist) {
+    logger.info(`✅ Serving frontend from: ${frontendDist}`);
+    app.use(express.static(frontendDist));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(frontendDist, 'index.html'));
+    });
+  } else {
+    logger.error(`❌ Could not find frontend/dist. Tried: ${candidatePaths.join(', ')}`);
+    // Fallback: respond with helpful error instead of 500
+    app.get('*', (_req, res) => {
+      res.status(503).json({
+        success: false,
+        message: 'Frontend build not found. Please ensure frontend is built during deployment.',
+      });
+    });
+  }
 }
 
 // 404 & Global Error Handling
@@ -67,20 +90,8 @@ app.use(errorHandler);
 // Start server
 async function startServer() {
   await connectDatabase();
-
-  const distPath = path.resolve(__dirname, '../../frontend/dist');
-  logger.info(`🔍 Checking frontend dist path: ${distPath}`);
-  if (fs.existsSync(distPath)) {
-    logger.info(`✅ frontend/dist exists! Contents: ${fs.readdirSync(distPath).join(', ')}`);
-  } else {
-    logger.warn(`❌ frontend/dist does NOT exist!`);
-    const parentPath = path.resolve(__dirname, '../../frontend');
-    if (fs.existsSync(parentPath)) {
-      logger.info(`📂 frontend/ directory exists! Contents: ${fs.readdirSync(parentPath).join(', ')}`);
-    } else {
-      logger.warn(`❌ frontend/ directory does NOT exist!`);
-    }
-  }
+  logger.info(`📁 __dirname: ${__dirname}`);
+  logger.info(`📁 process.cwd(): ${process.cwd()}`);
   
   httpServer.listen(env.port, () => {
     logger.info(`🚀 Server running in ${env.nodeEnv} mode on port ${env.port}`);
