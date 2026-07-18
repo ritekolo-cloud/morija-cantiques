@@ -61,3 +61,26 @@ I have successfully redesigned the application's user interface and core flow to
   - *Roc séculaire* → correct title (no `?`) ✅
   - *Only believe - 2* → correct title (no `?`) ✅
 
+---
+
+## Session 3: Full Rendering & PWA Fixes
+
+### Changes Made
+
+#### 1. PWA Manifest (`public/manifest.webmanifest`) [NEW]
+- Created the missing `manifest.webmanifest` file referenced in `index.html` that was causing a browser console syntax error.
+- Filled in name, short_name, description, theme colors, icons, categories, and display mode.
+
+#### 2. Deprecated Meta Tag Fix (`index.html`)
+- Added `<meta name="mobile-web-app-capable" content="yes" />` alongside the deprecated `apple-mobile-web-app-capable` to silence the browser deprecation warning.
+
+### Verification
+
+All pages confirmed rendering correctly via browser screenshots:
+- **Home Page** → 13 collection cards displayed in yellow grid ✅
+- **Collection Page** (`/collections/ob`) → "Only believe" with 222 hymns in numbered grid ✅
+- **Hymn Detail Page** (`/hymns/18628`) → "ONLY BELIEVE" with floral background & CHORUS styled lyrics ✅
+- **Search Page** (`/search`) → Search bar ready for input ✅
+- **Presentations Page** (`/presentations`) → Queue builder with collection filter and song grid ✅
+- **Presentation Live Page** → Full-screen projection with title, lyrics, navigation ✅
+- **TypeScript**: `npx tsc --noEmit` → **0 errors** ✅
