@@ -8,6 +8,7 @@ import swaggerUi from 'swagger-ui-express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
+import fs from 'fs';
 
 import { env } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/database';
@@ -66,6 +67,20 @@ app.use(errorHandler);
 // Start server
 async function startServer() {
   await connectDatabase();
+
+  const distPath = path.resolve(__dirname, '../../frontend/dist');
+  logger.info(`🔍 Checking frontend dist path: ${distPath}`);
+  if (fs.existsSync(distPath)) {
+    logger.info(`✅ frontend/dist exists! Contents: ${fs.readdirSync(distPath).join(', ')}`);
+  } else {
+    logger.warn(`❌ frontend/dist does NOT exist!`);
+    const parentPath = path.resolve(__dirname, '../../frontend');
+    if (fs.existsSync(parentPath)) {
+      logger.info(`📂 frontend/ directory exists! Contents: ${fs.readdirSync(parentPath).join(', ')}`);
+    } else {
+      logger.warn(`❌ frontend/ directory does NOT exist!`);
+    }
+  }
   
   httpServer.listen(env.port, () => {
     logger.info(`🚀 Server running in ${env.nodeEnv} mode on port ${env.port}`);
