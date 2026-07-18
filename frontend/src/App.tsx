@@ -1134,11 +1134,88 @@ function PresentationsPage() {
 }
 
 function FavoritesPage() {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'favorites' | 'bookmarks'>('favorites');
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [status, setStatus] = useState('');
+
   const favoriteIds = readLocal<string[]>('favorites', []);
+  const bookmarkIds = readLocal<string[]>('bookmarks', []);
+
+  useEffect(() => {
+    const ids = activeTab === 'favorites' ? favoriteIds : bookmarkIds;
+    if (ids.length === 0) { setSongs([]); return; }
+    setStatus('Loading');
+    Promise.all(ids.map((id) => apiFetchCached<Song>(`/songs/${id}`, `song:${id}`)))
+      .then((results) => { setSongs(results.map((r) => r.data).filter(Boolean)); setStatus(''); })
+      .catch(() => setStatus('Failed to load saved hymns.'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const ids = activeTab === 'favorites' ? favoriteIds : bookmarkIds;
+  const isEmpty = !status && songs.length === 0;
+
   return (
     <section className="page">
-      <div className="page-heading"><h1>Favorites</h1></div>
-      <p className="status">{favoriteIds.length ? 'Open favorite hymns from the reader.' : 'Favorite hymns from the reader toolbar.'}</p>
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">Personal library</p>
+          <h1>Saved Hymns</h1>
+        </div>
+      </div>
+
+      {/* Tab bar */}
+      <div className="saved-tabs" role="tablist">
+        <button
+          role="tab"
+          aria-selected={activeTab === 'favorites'}
+          className={`saved-tab ${activeTab === 'favorites' ? 'active' : ''}`}
+          onClick={() => setActiveTab('favorites')}
+        >
+          <Heart size={15} />
+          Favorites
+          <span className="saved-tab-count">{favoriteIds.length}</span>
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'bookmarks'}
+          className={`saved-tab ${activeTab === 'bookmarks' ? 'active' : ''}`}
+          onClick={() => setActiveTab('bookmarks')}
+        >
+          <Bookmark size={15} />
+          Bookmarks
+          <span className="saved-tab-count">{bookmarkIds.length}</span>
+        </button>
+      </div>
+
+      {status && <p className="status">{status}</p>}
+
+      {isEmpty && ids.length === 0 ? (
+        <div className="saved-empty">
+          {activeTab === 'favorites' ? <Heart size={40} /> : <Bookmark size={40} />}
+          <strong>No {activeTab} yet</strong>
+          <p>Tap the {activeTab === 'favorites' ? '♥' : '🔖'} icon while reading a hymn to save it here.</p>
+        </div>
+      ) : isEmpty ? (
+        <div className="saved-empty">
+          <p>Could not load details for saved hymns. Open them from the reader.</p>
+          <div className="list">
+            {ids.map((id) => (
+              <button key={id} className="hymn-row" onClick={() => navigate(`/hymns/${id}`)}>
+                <span className="hymn-number">–</span>
+                <span><strong>{id}</strong><small>Tap to open</small></span>
+                <ChevronRight size={18} />
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="list">
+          {songs.map((song) => (
+            <HymnRow key={song.id} song={song} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
