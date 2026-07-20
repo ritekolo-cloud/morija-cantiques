@@ -810,7 +810,7 @@ function PresentationsPage() {
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [searchStatus, setSearchStatus] = useState('');
   const [status, setStatus] = useState('');
-  const [projectionZoom, setProjectionZoom] = useState(() => clampNumber(readLocal(PRESENTATION_ZOOM_KEY, 0.85), 0.7, 1.5));
+  const [projectionZoom, setProjectionZoom] = useState(() => clampNumber(readLocal(PRESENTATION_ZOOM_KEY, 1.12), 1, 1.5));
   const projectionLyricsRef = useRef<HTMLDivElement | null>(null);
   const slideSong = songs[selectedIndex] || null;
   const presentationTapHandlers = usePreventDoubleTapZoom();
@@ -1021,11 +1021,11 @@ function PresentationsPage() {
           </button>
           <div className="projection-control-strip">
             <div className="projection-zoom-controls">
-            <button className="icon-button" title="Zoom out" onClick={() => setProjectionZoom((zoom) => clampNumber(Number((zoom - 0.1).toFixed(2)), 0.85, 1.8))}>
+            <button className="icon-button" title="Zoom out" onClick={() => setProjectionZoom((zoom) => clampNumber(Number((zoom - 0.1).toFixed(2)), 0.95, 1.5))}>
               <Minus size={18} />
             </button>
             <span>{Math.round(projectionZoom * 100)}%</span>
-            <button className="icon-button" title="Zoom in" onClick={() => setProjectionZoom((zoom) => clampNumber(Number((zoom + 0.1).toFixed(2)), 0.85, 1.8))}>
+            <button className="icon-button" title="Zoom in" onClick={() => setProjectionZoom((zoom) => clampNumber(Number((zoom + 0.1).toFixed(2)), 0.95, 1.5))}>
               <Plus size={18} />
             </button>
             </div>
