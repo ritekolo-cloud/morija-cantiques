@@ -45,7 +45,7 @@ The API health endpoint is available at `/api/health` and reports database conne
 This repo is intended to run as one Render web service named `morija-cantiques`. The Express backend serves both `/api/*` and the compiled React app from `frontend/dist`, so the public app URL should be:
 
 ```text
-https://morija-cantiques.onrender.com
+https://morija-cantiques-ax20.onrender.com
 ```
 
 The recommended setup is to create or sync the service from `render.yaml`. The Blueprint creates a Render Postgres database, maps `DATABASE_URL` from that database, generates `JWT_SECRET` and `JWT_REFRESH_SECRET`, builds the backend/frontend, runs Prisma migrations, imports the hymn data, and then starts the Express server.
@@ -59,8 +59,8 @@ JWT_SECRET=<a long random secret>
 JWT_REFRESH_SECRET=<another long random secret>
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
-CLIENT_URL=https://morija-cantiques.onrender.com
-CORS_ORIGIN=https://morija-cantiques.onrender.com
+CLIENT_URL=https://morija-cantiques-ax20.onrender.com
+CORS_ORIGIN=https://morija-cantiques-ax20.onrender.com
 ```
 
 For a manually configured Render web service, use these commands:

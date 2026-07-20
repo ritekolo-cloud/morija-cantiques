@@ -46,9 +46,9 @@ services:
 
       # ── CORS / URLs ──────────────────────────────────────────────
       - key: CLIENT_URL
-        value: https://morija-cantiques.onrender.com
+        value: https://morija-cantiques-ax20.onrender.com
       - key: CORS_ORIGIN
-        value: https://morija-cantiques.onrender.com
+        value: https://morija-cantiques-ax20.onrender.com
 
       # ── Security ─────────────────────────────────────────────────
       - key: BCRYPT_ROUNDS
