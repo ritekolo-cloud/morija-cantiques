@@ -76,8 +76,13 @@ button:disabled {
   backdrop-filter: blur(18px);
 }
 
+.topbar.collapsed {
+  min-height: 52px;
+}
+
 .brand,
-.nav-link {
+.nav-link,
+.nav-toggle {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -117,6 +122,20 @@ button:disabled {
   margin-left: auto;
 }
 
+.nav-toggle {
+  width: 42px;
+  height: 42px;
+  justify-content: center;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  background: rgba(255, 240, 0, 0.1);
+  color: var(--accent);
+}
+
+.account-actions + .nav-toggle {
+  margin-left: 6px;
+}
+
 .content {
   padding: clamp(16px, 2.6vw, 30px);
 }
@@ -132,10 +151,10 @@ button:disabled {
   max-width: none;
   min-height: calc(100vh - 96px);
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
   margin: calc(clamp(16px, 2.6vw, 30px) * -1);
   padding: clamp(16px, 2.6vw, 30px);
-  overflow: hidden;
+  overflow: visible;
   background:
     linear-gradient(rgba(255, 250, 178, 0.08), rgba(255, 246, 126, 0.2)),
     url("/song-background.png") center / cover no-repeat;
@@ -422,10 +441,10 @@ h2 {
 
 .hymn-reader {
   width: min(100%, 1120px);
-  min-height: min(720px, calc(100vh - 176px));
+  min-height: auto;
   display: grid;
-  grid-template-rows: auto auto minmax(0, auto);
-  align-content: center;
+  grid-template-rows: auto auto auto;
+  align-content: start;
   justify-items: center;
   gap: clamp(10px, 1.8vh, 18px);
   padding: clamp(12px, 2vh, 22px) 0 clamp(42px, 7vh, 84px);
@@ -445,8 +464,8 @@ h2 {
   --reader-fit-scale: 1;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-height: min(58vh, 620px);
-  overflow: hidden;
+  max-height: none;
+  overflow: visible;
   line-height: 1.55;
   font-family: Inter, "Nunito Sans", "Source Sans Pro", ui-sans-serif, system-ui, sans-serif;
   text-align: center;
@@ -501,6 +520,7 @@ h2 {
 :root[data-presentation="on"] .hymn-reader {
   width: min(92vw, 1460px);
   min-height: 100%;
+  align-content: center;
   gap: clamp(14px, 2.6vh, 32px);
   padding: 0;
 }
@@ -516,6 +536,7 @@ h2 {
 :root[data-presentation="on"] .hymn-reader pre {
   width: min(100%, 1340px);
   max-height: min(68vh, 760px);
+  overflow: hidden;
   font-size: clamp(2rem, 3.6vw, 4.2rem) !important;
   line-height: 1.26;
 }
@@ -1185,6 +1206,11 @@ input {
   .topbar {
     align-items: flex-start;
     flex-wrap: wrap;
+    padding-right: 10px;
+  }
+
+  .topbar.collapsed {
+    align-items: center;
   }
 
   .topnav {
@@ -1201,6 +1227,17 @@ input {
 
   .account-actions {
     margin-left: 0;
+  }
+
+  .topbar.collapsed .brand {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .topbar.collapsed .brand strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .content {

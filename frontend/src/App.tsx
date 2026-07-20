@@ -4,8 +4,10 @@ import {
   ArrowUp,
   BookOpen,
   Bookmark,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Copy,
   Heart,
   Home,
@@ -99,6 +101,7 @@ type PresentationSong = Song & {
 const COLLECTIONS_CACHE_KEY = 'collections:v2';
 const PRESENTATION_SONGS_KEY = 'presentation:songs:v1';
 const PRESENTATION_ZOOM_KEY = 'presentation:zoom:v1';
+const NAV_COLLAPSED_KEY = 'ui:nav-collapsed:v1';
 const DOUBLE_TAP_DELAY_MS = 320;
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -413,27 +416,48 @@ function Shell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const path = location.pathname === '/app/home' ? '/' : location.pathname;
+  const [navCollapsed, setNavCollapsed] = useState(readLocal(NAV_COLLAPSED_KEY, false));
+
+  function toggleNavigation() {
+    const next = !navCollapsed;
+    setNavCollapsed(next);
+    writeLocal(NAV_COLLAPSED_KEY, next);
+  }
 
   return (
     <div className="app-shell">
-      <header className="topbar">
+      <header className={`topbar ${navCollapsed ? 'collapsed' : ''}`}>
         <button className="brand" onClick={() => navigate('/')}>
           <BookOpen size={26} />
           <strong>Morija Cantiques</strong>
         </button>
-        <nav className="topnav">
-          <NavButton to="/" icon={Home} active={path === '/'} onClick={navigate}>Home</NavButton>
-          <NavButton to="/search" icon={Search} active={path === '/search'} onClick={navigate}>Search</NavButton>
-          <NavButton to="/presentations" icon={ListMusic} active={path === '/presentations'} onClick={navigate}>Presentations</NavButton>
-          <NavButton to="/favorites" icon={Heart} active={path === '/favorites'} onClick={navigate}>Favorites</NavButton>
-          <NavButton to="/settings" icon={Settings} active={path === '/settings'} onClick={navigate}>Settings</NavButton>
-        </nav>
-        <div className="account-actions">
-          <button className="nav-link" onClick={() => navigate('/settings')}>
-            <LogIn size={18} />
-            <span>Sign in</span>
-          </button>
-        </div>
+        {!navCollapsed && (
+          <>
+            <nav className="topnav">
+              <NavButton to="/" icon={Home} active={path === '/'} onClick={navigate}>Home</NavButton>
+              <NavButton to="/search" icon={Search} active={path === '/search'} onClick={navigate}>Search</NavButton>
+              <NavButton to="/presentations" icon={ListMusic} active={path === '/presentations'} onClick={navigate}>Presentations</NavButton>
+              <NavButton to="/favorites" icon={Heart} active={path === '/favorites'} onClick={navigate}>Favorites</NavButton>
+              <NavButton to="/settings" icon={Settings} active={path === '/settings'} onClick={navigate}>Settings</NavButton>
+            </nav>
+            <div className="account-actions">
+              <button className="nav-link" onClick={() => navigate('/settings')}>
+                <LogIn size={18} />
+                <span>Sign in</span>
+              </button>
+            </div>
+          </>
+        )}
+        <button
+          className="nav-toggle"
+          type="button"
+          aria-expanded={!navCollapsed}
+          aria-label={navCollapsed ? 'Show navigation' : 'Hide navigation'}
+          title={navCollapsed ? 'Show navigation' : 'Hide navigation'}
+          onClick={toggleNavigation}
+        >
+          {navCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+        </button>
       </header>
       <main className="content">{children}</main>
     </div>
@@ -652,6 +676,11 @@ function ReaderPage() {
   useEffect(() => {
     if (!song || !readerLyricsRef.current) return undefined;
     const lyricsElement = readerLyricsRef.current;
+    if (!presentation && !immersive) {
+      lyricsElement.style.setProperty('--reader-fit-scale', '1');
+      return undefined;
+    }
+
     let frameId = 0;
     const fitLyrics = () => {
       window.cancelAnimationFrame(frameId);
