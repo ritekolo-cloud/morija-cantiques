@@ -815,7 +815,7 @@ h2 {
   height: 100dvh;
   min-height: 100vh;
   display: grid;
-  grid-template-rows: clamp(76px, 9vh, 108px) minmax(0, 1fr) clamp(72px, 8.5vh, 96px);
+  grid-template-rows: clamp(68px, 8vh, 96px) minmax(0, 1fr) clamp(68px, 8vh, 88px);
   gap: 0;
   overflow: hidden;
   background: #ffe714 url("/song-background.png") center / cover no-repeat;
@@ -858,7 +858,33 @@ h2 {
   letter-spacing: 0.05em;
 }
 
-.presentation-exit,
+.presentation-fullscreen-exit {
+  position: absolute;
+  top: clamp(10px, 1.6vh, 18px);
+  right: clamp(10px, 1.6vw, 22px);
+  z-index: 30;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(36, 16, 79, 0.58);
+  color: #fff9d6;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s, transform 0.15s;
+}
+
+.presentation-fullscreen-exit:hover {
+  background: #24104f;
+  opacity: 1;
+}
+
+.presentation-fullscreen-exit:active {
+  transform: scale(0.96);
+}
+
 .presentation-nav-button {
   display: inline-flex;
   align-items: center;
@@ -872,24 +898,16 @@ h2 {
   font-weight: 700;
 }
 
-.presentation-exit {
-  min-height: 56px;
-  padding: 0 26px;
-  font-size: clamp(1rem, 1.25vw, 1.25rem);
-}
-
 .presentation-nav-button {
   min-height: 56px;
   padding: 0 22px;
   font-size: clamp(0.88rem, 1.15vw, 1.15rem);
 }
 
-.presentation-exit:hover,
 .presentation-nav-button:hover {
   background: #2f1763;
 }
 
-.presentation-exit:active,
 .presentation-nav-button:active {
   transform: scale(0.98);
 }
@@ -905,10 +923,19 @@ h2 {
   grid-template-rows: auto auto minmax(0, 1fr);
   align-content: start;
   justify-items: center;
-  gap: clamp(4px, 1vh, 10px);
+  gap: clamp(10px, 1.5vh, 18px);
   overflow: hidden;
-  padding: 0 clamp(18px, 5.2vw, 88px) clamp(8px, 1vh, 14px);
+  padding: 0 clamp(18px, 5.2vw, 88px) clamp(10px, 1.5vh, 18px);
   text-align: center;
+}
+
+.projection-lyrics::-webkit-scrollbar {
+  width: 7px;
+}
+
+.projection-lyrics::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(36, 16, 79, 0.28);
 }
 
 .presentation-song-meta {
@@ -922,10 +949,10 @@ h2 {
 
 .presentation-slide h1 {
   max-width: 1280px;
-  margin-bottom: 0;
+  margin-bottom: clamp(4px, 0.6vh, 8px);
   color: #24104f;
   font-family: Inter, "Nunito Sans", "Source Sans Pro", ui-sans-serif, system-ui, sans-serif;
-  font-size: clamp(2.4rem, 4.2vw, 4.8rem);
+  font-size: clamp(2.1rem, 3.7vw, 4.25rem);
   font-weight: 950;
   letter-spacing: 0;
   line-height: 0.96;
@@ -934,17 +961,21 @@ h2 {
 
 .projection-lyrics {
   --projection-fit-scale: 1;
-  --projection-zoom: 1.12;
+  --projection-zoom: 1.18;
   position: relative;
-  width: min(100%, 1240px);
+  width: min(100%, 1120px);
   height: 100%;
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-  align-content: center;
-  gap: clamp(30px, 4vw, 72px);
-  overflow: hidden;
+  align-items: start;
+  align-content: start;
+  gap: clamp(20px, 2.7vw, 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(36, 16, 79, 0.35) transparent;
+  padding: clamp(8px, 1.2vh, 16px) 0 clamp(18px, 2vh, 26px);
   text-align: center;
 }
 
@@ -979,7 +1010,7 @@ h2 {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: clamp(6px, 1vh, 12px);
   padding: 0 clamp(6px, 0.8vw, 12px);
 }
@@ -994,10 +1025,22 @@ h2 {
   overflow-wrap: anywhere;
   color: #24104f;
   font-family: Inter, "Nunito Sans", "Source Sans Pro", ui-sans-serif, system-ui, sans-serif;
-  font-size: calc(clamp(2.05rem, 2.5vw, 3.25rem) * var(--projection-zoom) * var(--projection-fit-scale));
-  line-height: 1.18;
+  font-size: calc(clamp(2.2rem, 2.75vw, 3.55rem) * var(--projection-zoom) * var(--projection-fit-scale));
+  line-height: 1.14;
   font-weight: 800;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.projection-stanza-chorus {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  border-left: 5px solid rgba(146, 23, 56, 0.78);
+  border-right: 5px solid rgba(146, 23, 56, 0.18);
+  border-radius: 8px;
+  padding: clamp(6px, 0.9vh, 11px) clamp(10px, 1.2vw, 18px);
+  background: rgba(255, 255, 255, 0.16);
+  color: #921738;
+  box-shadow: inset 0 0 0 1px rgba(146, 23, 56, 0.08);
 }
 
 .projection-stanza p {
@@ -1010,7 +1053,7 @@ h2 {
   align-items: center;
   gap: clamp(10px, 1vw, 16px);
   width: min(100%, 360px);
-  margin: clamp(7px, 1.1vh, 14px) auto 0;
+  margin: clamp(5px, 0.9vh, 11px) auto 0;
   color: rgba(36, 16, 79, 0.28);
 }
 
@@ -1031,61 +1074,11 @@ h2 {
 
 .presentation-controls {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto;
   align-items: center;
+  justify-content: space-between;
   gap: clamp(18px, 2vw, 30px);
   padding: 0 clamp(20px, 8.6vw, 144px) clamp(18px, 2.6vh, 28px);
-}
-
-.projection-control-strip {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: clamp(16px, 2vw, 28px);
-}
-
-.projection-zoom-controls {
-  display: inline-grid;
-  grid-template-columns: 54px minmax(70px, auto) 54px;
-  align-items: center;
-  gap: 0;
-  height: 64px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 4px;
-  background: rgba(255, 255, 255, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
-.projection-zoom-controls .icon-button {
-  width: 54px;
-  min-height: 54px;
-  border: 0;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fffbe0;
-}
-
-.projection-zoom-controls span {
-  color: #24104f;
-  font-weight: 900;
-  font-size: clamp(1rem, 1.25vw, 1.18rem);
-  text-align: center;
-}
-
-.presentation-progress {
-  flex: 1;
-  min-width: 140px;
-  height: 12px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.presentation-progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #fff000;
 }
 
 .search-bar,
@@ -1215,10 +1208,14 @@ input {
     justify-content: flex-end;
   }
 
-  .presentation-show-top,
+  .presentation-show-top {
+    display: flex;
+    justify-content: flex-start;
+  }
+
   .presentation-controls {
-    display: grid;
-    justify-content: stretch;
+    grid-template-columns: auto auto;
+    justify-content: space-between;
   }
 
   .presentation-search {

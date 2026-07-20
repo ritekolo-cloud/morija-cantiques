@@ -329,28 +329,6 @@ function useDoubleTapFullscreen(onDoubleTap: () => void) {
   return { onDoubleClick, onPointerUp };
 }
 
-function usePreventDoubleTapZoom() {
-  const lastTapRef = useRef(0);
-
-  function onDoubleClick(event: React.MouseEvent<HTMLElement>) {
-    if (isInteractiveTarget(event.target)) return;
-    event.preventDefault();
-  }
-
-  function onPointerUp(event: React.PointerEvent<HTMLElement>) {
-    if (event.pointerType !== 'touch' || isInteractiveTarget(event.target)) return;
-    const now = Date.now();
-    if (now - lastTapRef.current <= DOUBLE_TAP_DELAY_MS) {
-      event.preventDefault();
-      lastTapRef.current = 0;
-    } else {
-      lastTapRef.current = now;
-    }
-  }
-
-  return { onDoubleClick, onPointerUp };
-}
-
 type ProjectionStanza = string[];
 
 function projectionLyricWeight(lines: ProjectionStanza) {
@@ -376,6 +354,16 @@ function getProjectionStanzas(lyrics: string): ProjectionStanza[] {
     grouped.push(lines.slice(index, index + 4));
   }
   return grouped;
+}
+
+function isProjectionChorus(lines: ProjectionStanza) {
+  const normalized = lines
+    .join(' ')
+    .toLowerCase()
+    .replace(/\u0153/g, 'oe')
+    .replace(/\u0152/g, 'oe');
+
+  return /\b(chorus|choeur|refrain)\b/.test(normalized);
 }
 
 function splitProjectionLyrics(lyrics: string) {
@@ -810,10 +798,17 @@ function PresentationsPage() {
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [searchStatus, setSearchStatus] = useState('');
   const [status, setStatus] = useState('');
-  const [projectionZoom, setProjectionZoom] = useState(() => clampNumber(readLocal(PRESENTATION_ZOOM_KEY, 1.12), 1, 1.5));
+  const [projectionZoom, setProjectionZoom] = useState(() => (
+    clampNumber(Math.max(readLocal(PRESENTATION_ZOOM_KEY, 1.18), 1.18), 1.05, 1.55)
+  ));
+  const [isPresentationFullscreen, setIsPresentationFullscreen] = useState(false);
+  const presentationSlideRef = useRef<HTMLElement | null>(null);
   const projectionLyricsRef = useRef<HTMLDivElement | null>(null);
   const slideSong = songs[selectedIndex] || null;
-  const presentationTapHandlers = usePreventDoubleTapZoom();
+  const presentationTapHandlers = useDoubleTapFullscreen(() => {
+    if (document.fullscreenElement) exitAppFullscreen().catch(() => {});
+    else requestAppFullscreen().catch(() => {});
+  });
   const projectionLyricColumns = useMemo(
     () => splitProjectionLyrics(normalizePlainLyrics(slideSong)),
     [slideSong],
@@ -868,11 +863,21 @@ function PresentationsPage() {
   }, [projectionZoom]);
 
   useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsPresentationFullscreen(Boolean(document.fullscreenElement));
+    };
+    onFullscreenChange();
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
     if (!presenting) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setPresenting(false);
+        if (document.fullscreenElement) exitAppFullscreen().catch(() => {});
+        else setPresenting(false);
       } else if (['ArrowRight', 'PageDown', ' '].includes(event.key)) {
         event.preventDefault();
         setSelectedIndex((index) => Math.min(index + 1, songs.length - 1));
@@ -884,6 +889,12 @@ function PresentationsPage() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [presenting, songs.length]);
+
+  useEffect(() => {
+    if (!presenting) return;
+    presentationSlideRef.current?.scrollTo({ top: 0, left: 0 });
+    projectionLyricsRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [presenting, slideSong?.id]);
 
   useEffect(() => {
     if (!presenting || !projectionLyricsRef.current) return undefined;
@@ -898,8 +909,8 @@ function PresentationsPage() {
           lyricsElement.scrollHeight > lyricsElement.clientHeight + 2 ||
           lyricsElement.scrollWidth > lyricsElement.clientWidth + 2
         );
-        while (isOverflowing() && scale > 0.5) {
-          scale -= 0.035;
+        while (isOverflowing() && scale > 0.82) {
+          scale = Math.max(0.82, scale - 0.035);
           lyricsElement.style.setProperty('--projection-fit-scale', scale.toFixed(2));
         }
       });
@@ -975,6 +986,16 @@ function PresentationsPage() {
   if (presenting && slideSong) {
     return (
       <section className="presentation-show" {...presentationTapHandlers}>
+        {isPresentationFullscreen && (
+          <button
+            className="presentation-fullscreen-exit"
+            aria-label="Exit fullscreen"
+            title="Exit fullscreen"
+            onClick={() => exitAppFullscreen().catch(() => {})}
+          >
+            <X size={18} />
+          </button>
+        )}
         <header className="presentation-show-top">
           <div className="presentation-show-status">
             <p className="presentation-show-label">
@@ -983,9 +1004,8 @@ function PresentationsPage() {
             </p>
             <strong>{selectedIndex + 1} of {songs.length}</strong>
           </div>
-          <button className="presentation-exit" onClick={() => setPresenting(false)}><X size={22} /> Exit</button>
         </header>
-        <article className="presentation-slide">
+        <article ref={presentationSlideRef} className="presentation-slide">
           <p className="presentation-song-meta">{slideSong.collectionName} / {songNumberLabel(slideSong)}</p>
           <h1>{slideSong.title}</h1>
           <div
@@ -997,7 +1017,7 @@ function PresentationsPage() {
               <div className="projection-lyric-column" key={`${slideSong.id}-column-${index}`}>
                 {column.map((stanza, stanzaIndex) => (
                   <div className="projection-stanza-group" key={`${slideSong.id}-stanza-${index}-${stanzaIndex}`}>
-                    <div className="projection-stanza">
+                    <div className={`projection-stanza ${isProjectionChorus(stanza) ? 'projection-stanza-chorus' : ''}`}>
                       {stanza.map((line, lineIndex) => (
                         <p key={`${line}-${lineIndex}`}>{line || String.fromCharCode(160)}</p>
                       ))}
@@ -1019,20 +1039,6 @@ function PresentationsPage() {
           <button className="presentation-nav-button" disabled={selectedIndex === 0} onClick={() => setSelectedIndex(selectedIndex - 1)}>
             <ChevronLeft size={18} /> Previous
           </button>
-          <div className="projection-control-strip">
-            <div className="projection-zoom-controls">
-            <button className="icon-button" title="Zoom out" onClick={() => setProjectionZoom((zoom) => clampNumber(Number((zoom - 0.1).toFixed(2)), 0.95, 1.5))}>
-              <Minus size={18} />
-            </button>
-            <span>{Math.round(projectionZoom * 100)}%</span>
-            <button className="icon-button" title="Zoom in" onClick={() => setProjectionZoom((zoom) => clampNumber(Number((zoom + 0.1).toFixed(2)), 0.95, 1.5))}>
-              <Plus size={18} />
-            </button>
-            </div>
-            <div className="presentation-progress">
-              <span style={{ width: `${((selectedIndex + 1) / songs.length) * 100}%` }} />
-            </div>
-          </div>
           <button className="presentation-nav-button" disabled={selectedIndex >= songs.length - 1} onClick={() => setSelectedIndex(selectedIndex + 1)}>
             Next <ChevronRight size={18} />
           </button>
