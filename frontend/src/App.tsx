@@ -874,6 +874,20 @@ function PresentationsPage() {
   useEffect(() => {
     if (!presenting) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey) {
+        if (event.key === '+' || event.key === '=') {
+          event.preventDefault();
+          setProjectionZoom((zoom) => clampNumber(Number((zoom + 0.12).toFixed(2)), 0.5, 4));
+        } else if (event.key === '-' || event.key === '_') {
+          event.preventDefault();
+          setProjectionZoom((zoom) => clampNumber(Number((zoom - 0.12).toFixed(2)), 0.5, 4));
+        } else if (event.key === '0') {
+          event.preventDefault();
+          setProjectionZoom(1.18);
+        }
+        return;
+      }
+
       if (event.key === 'Escape') {
         event.preventDefault();
         if (document.fullscreenElement) exitAppFullscreen().catch(() => {});
@@ -982,10 +996,19 @@ function PresentationsPage() {
 
   const isSearchingSongs = searchQuery.trim().length > 0;
   const visibleBrowseSongs = isSearchingSongs ? searchResults : (browseData?.songs || []);
+  const changeProjectionZoom = (delta: number) => {
+    setProjectionZoom((zoom) => clampNumber(Number((zoom + delta).toFixed(2)), 0.5, 4));
+  };
+
+  const handlePresentationWheel = (event: React.WheelEvent<HTMLElement>) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    changeProjectionZoom(event.deltaY < 0 ? 0.08 : -0.08);
+  };
 
   if (presenting && slideSong) {
     return (
-      <section className="presentation-show" {...presentationTapHandlers}>
+      <section className="presentation-show" onWheel={handlePresentationWheel} {...presentationTapHandlers}>
         {isPresentationFullscreen && (
           <button
             className="presentation-fullscreen-exit"
@@ -1013,11 +1036,23 @@ function PresentationsPage() {
             className={`projection-lyrics columns-${projectionLyricColumns.length}`}
             style={{ '--projection-zoom': projectionZoom } as React.CSSProperties}
           >
-            {projectionLyricColumns.map((column, index) => (
+            {projectionLyricColumns.map((column, index) => {
+              const columnOffset = projectionLyricColumns
+                .slice(0, index)
+                .reduce((total, currentColumn) => total + currentColumn.length, 0);
+
+              return (
               <div className="projection-lyric-column" key={`${slideSong.id}-column-${index}`}>
-                {column.map((stanza, stanzaIndex) => (
+                {column.map((stanza, stanzaIndex) => {
+                  const partNumber = columnOffset + stanzaIndex + 1;
+                  const isChorus = isProjectionChorus(stanza);
+
+                  return (
                   <div className="projection-stanza-group" key={`${slideSong.id}-stanza-${index}-${stanzaIndex}`}>
-                    <div className={`projection-stanza ${isProjectionChorus(stanza) ? 'projection-stanza-chorus' : ''}`}>
+                    <span className={`projection-part-number ${isChorus ? 'projection-part-number-chorus' : ''}`}>
+                      {partNumber}
+                    </span>
+                    <div className={`projection-stanza ${isChorus ? 'projection-stanza-chorus' : ''}`}>
                       {stanza.map((line, lineIndex) => (
                         <p key={`${line}-${lineIndex}`}>{line || String.fromCharCode(160)}</p>
                       ))}
@@ -1029,10 +1064,12 @@ function PresentationsPage() {
                         <span />
                       </div>
                     )}
-                  </div>
-                ))}
-              </div>
-            ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         </article>
         <footer className="presentation-controls">

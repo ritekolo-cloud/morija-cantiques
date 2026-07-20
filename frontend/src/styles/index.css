@@ -818,9 +818,12 @@ h2 {
   grid-template-rows: clamp(68px, 8vh, 96px) minmax(0, 1fr) clamp(68px, 8vh, 88px);
   gap: 0;
   overflow: hidden;
-  background: #ffe714 url("/song-background.png") center / cover no-repeat;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(255, 255, 255, 0.78), transparent 26rem),
+    radial-gradient(circle at 82% 5%, rgba(176, 221, 255, 0.85), transparent 30rem),
+    linear-gradient(145deg, #e9f7ff 0%, #cdeeff 46%, #b7e3fb 100%);
   color: #24104f;
-  touch-action: manipulation;
+  touch-action: auto;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1017,6 +1020,28 @@ h2 {
 
 .projection-stanza-group {
   min-width: 0;
+}
+
+.projection-part-number {
+  min-width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto clamp(4px, 0.7vh, 8px);
+  border: 2px solid rgba(36, 16, 79, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #24104f;
+  font-size: calc(clamp(0.9rem, 1vw, 1.08rem) * var(--projection-fit-scale));
+  font-weight: 900;
+  line-height: 1;
+}
+
+.projection-part-number-chorus {
+  border-color: rgba(146, 23, 56, 0.42);
+  background: rgba(146, 23, 56, 0.12);
+  color: #921738;
 }
 
 .projection-stanza {
