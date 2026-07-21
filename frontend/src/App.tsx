@@ -145,6 +145,18 @@ function collectionCode(collection?: Collection) {
   return (collection?.code || collection?.slug || '').toUpperCase();
 }
 
+function collectionRouteKey(collection?: Collection | null) {
+  return String(collection?.slug || collection?.code || collection?.id || '').trim();
+}
+
+function collectionMatchesRoute(collection: Collection | undefined, routeKey: string) {
+  const expected = routeKey.trim().toLowerCase();
+  if (!collection || !expected) return false;
+  return [collection.slug, collection.code, collection.id]
+    .filter(Boolean)
+    .some((value) => String(value).trim().toLowerCase() === expected);
+}
+
 function collectionCount(collection: Collection) {
   return collection.importedHymnCount ?? collection.songCount ?? 0;
 }
@@ -244,11 +256,15 @@ async function getCollectionSongs(slug: string): Promise<CollectionSongs> {
 async function getCollectionSongsCached(slug: string, cacheKey: string): Promise<{ data: CollectionSongs; offline: boolean }> {
   try {
     const data = await getCollectionSongs(slug);
+    if (!collectionMatchesRoute(data.collection, slug)) {
+      throw new Error(`Loaded ${data.collection.name}, not the selected collection.`);
+    }
     writeLocal(cacheKey, data);
     return { data, offline: false };
   } catch (error) {
     const cached = readLocal<CollectionSongs | null>(cacheKey, null);
-    if (cached) return { data: cached, offline: true };
+    if (cached && collectionMatchesRoute(cached.collection, slug)) return { data: cached, offline: true };
+    if (cached) localStorage.removeItem(cacheKey);
     throw error;
   }
 }
@@ -468,17 +484,20 @@ function CollectionGrid({ collections }: { collections: Collection[] }) {
   const navigate = useNavigate();
   return (
     <div className="collection-grid">
-      {collections.map((collection) => (
+      {collections.map((collection) => {
+        const routeKey = collectionRouteKey(collection);
+        return (
         <button
           key={collection.id || collection.slug}
           className="collection-card"
-          onClick={() => navigate(`/collections/${collection.slug || collection.code}`)}
+          onClick={() => routeKey && navigate(`/collections/${encodeURIComponent(routeKey)}`)}
         >
           <span className="collection-code">{collectionCode(collection)}</span>
           <strong>{collection.name}</strong>
           <small>{collectionCount(collection)} Hymns</small>
         </button>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -539,7 +558,7 @@ function CollectionsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const match = location.pathname.match(/^\/(?:app\/)?collections\/([^/]+)/);
-  const slug = match?.[1] || '';
+  const slug = match?.[1] ? decodeURIComponent(match[1]) : '';
   const [collections, setCollections] = useState<Collection[]>([]);
   const [data, setData] = useState<CollectionSongs | null>(null);
   const [status, setStatus] = useState('Loading');
@@ -551,6 +570,9 @@ function CollectionsPage() {
       ? getCollectionSongsCached(slug, key)
       : apiFetchCached<Collection[]>('/collections', key);
 
+    setStatus(slug ? 'Loading songs' : 'Loading collections');
+    if (slug) setData(null);
+
     request
       .then(({ data: response, offline }) => {
         if (cancelled) return;
@@ -561,7 +583,11 @@ function CollectionsPage() {
         }
         setStatus(offline ? 'Offline' : '');
       })
-      .catch((error: Error) => !cancelled && setStatus(error.message));
+      .catch((error: Error) => {
+        if (cancelled) return;
+        if (slug) setData(null);
+        setStatus(error.message);
+      });
 
     return () => {
       cancelled = true;
@@ -883,6 +909,7 @@ function PresentationsPage() {
   useEffect(() => {
     if (!browseCode) return undefined;
     let cancelled = false;
+    setBrowseData(null);
     setBrowseStatus('Loading songs');
     getCollectionSongsCached(browseCode, `collection-songs:${browseCode}:v2`)
       .then(({ data, offline }) => {
@@ -1212,16 +1239,19 @@ function PresentationsPage() {
             <button className="primary-action"><Search size={17} /> Search</button>
           </form>
           <div className="presentation-collection-list">
-            {collections.map((collection) => (
+            {collections.map((collection) => {
+              const routeKey = collectionRouteKey(collection);
+              return (
               <button
                 key={collection.id || collection.slug}
-                className={`presentation-collection-button ${(collection.slug || collection.code) === browseCode ? 'active' : ''}`}
-                onClick={() => setBrowseCode(collection.slug || collection.code || '')}
+                className={`presentation-collection-button ${routeKey === browseCode ? 'active' : ''}`}
+                onClick={() => routeKey && setBrowseCode(routeKey)}
               >
                 <strong>{collectionCode(collection)}</strong>
                 <span>{collection.name}</span>
               </button>
-            ))}
+              );
+            })}
           </div>
           {(searchStatus || (!isSearchingSongs && browseStatus)) && <p className="status">{searchStatus || browseStatus}</p>}
           <div className="presentation-browser-grid">
