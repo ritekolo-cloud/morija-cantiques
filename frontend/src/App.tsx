@@ -100,7 +100,7 @@ type PresentationSong = Song & {
 
 const COLLECTIONS_CACHE_KEY = 'collections:v2';
 const PRESENTATION_SONGS_KEY = 'presentation:songs:v1';
-const PRESENTATION_ZOOM_KEY = 'presentation:zoom:v1';
+const PRESENTATION_SCREEN_ZOOM_KEY = 'presentation:screen-zoom:v1';
 const NAV_COLLAPSED_KEY = 'ui:nav-collapsed:v1';
 const DOUBLE_TAP_DELAY_MS = 320;
 
@@ -844,9 +844,10 @@ function PresentationsPage() {
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [searchStatus, setSearchStatus] = useState('');
   const [status, setStatus] = useState('');
-  const [projectionZoom, setProjectionZoom] = useState(() => (
-    clampNumber(Math.max(readLocal(PRESENTATION_ZOOM_KEY, 1.18), 1.18), 1.05, 1.55)
+  const [presentationScreenZoom, setPresentationScreenZoom] = useState(() => (
+    clampNumber(readLocal(PRESENTATION_SCREEN_ZOOM_KEY, 1), 0.75, 4)
   ));
+  const [presentationZoomOrigin, setPresentationZoomOrigin] = useState({ x: 50, y: 50 });
   const [isPresentationFullscreen, setIsPresentationFullscreen] = useState(false);
   const presentationSlideRef = useRef<HTMLElement | null>(null);
   const projectionLyricsRef = useRef<HTMLDivElement | null>(null);
@@ -905,8 +906,8 @@ function PresentationsPage() {
   }, [presenting]);
 
   useEffect(() => {
-    writeLocal(PRESENTATION_ZOOM_KEY, projectionZoom);
-  }, [projectionZoom]);
+    writeLocal(PRESENTATION_SCREEN_ZOOM_KEY, presentationScreenZoom);
+  }, [presentationScreenZoom]);
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -923,13 +924,16 @@ function PresentationsPage() {
       if (event.ctrlKey || event.metaKey) {
         if (event.key === '+' || event.key === '=') {
           event.preventDefault();
-          setProjectionZoom((zoom) => clampNumber(Number((zoom + 0.12).toFixed(2)), 0.5, 4));
+          setPresentationZoomOrigin({ x: 50, y: 50 });
+          setPresentationScreenZoom((zoom) => clampNumber(Number((zoom + 0.16).toFixed(2)), 0.75, 4));
         } else if (event.key === '-' || event.key === '_') {
           event.preventDefault();
-          setProjectionZoom((zoom) => clampNumber(Number((zoom - 0.12).toFixed(2)), 0.5, 4));
+          setPresentationZoomOrigin({ x: 50, y: 50 });
+          setPresentationScreenZoom((zoom) => clampNumber(Number((zoom - 0.16).toFixed(2)), 0.75, 4));
         } else if (event.key === '0') {
           event.preventDefault();
-          setProjectionZoom(1.18);
+          setPresentationZoomOrigin({ x: 50, y: 50 });
+          setPresentationScreenZoom(1);
         }
         return;
       }
@@ -954,6 +958,8 @@ function PresentationsPage() {
     if (!presenting) return;
     presentationSlideRef.current?.scrollTo({ top: 0, left: 0 });
     projectionLyricsRef.current?.scrollTo({ top: 0, left: 0 });
+    setPresentationZoomOrigin({ x: 50, y: 50 });
+    setPresentationScreenZoom(1);
   }, [presenting, slideSong?.id]);
 
   useEffect(() => {
@@ -981,7 +987,7 @@ function PresentationsPage() {
       window.cancelAnimationFrame(frameId);
       window.removeEventListener('resize', fitLyrics);
     };
-  }, [presenting, slideSong?.id, projectionZoom]);
+  }, [presenting, slideSong?.id]);
 
   function saveSongs(next: PresentationSong[]) {
     setSongs(next);
@@ -1042,14 +1048,21 @@ function PresentationsPage() {
 
   const isSearchingSongs = searchQuery.trim().length > 0;
   const visibleBrowseSongs = isSearchingSongs ? searchResults : (browseData?.songs || []);
-  const changeProjectionZoom = (delta: number) => {
-    setProjectionZoom((zoom) => clampNumber(Number((zoom + delta).toFixed(2)), 0.5, 4));
+  const changePresentationScreenZoom = (delta: number, clientX?: number, clientY?: number) => {
+    const slideRect = presentationSlideRef.current?.getBoundingClientRect();
+    if (slideRect && typeof clientX === 'number' && typeof clientY === 'number') {
+      const x = clampNumber(((clientX - slideRect.left) / slideRect.width) * 100, 0, 100);
+      const y = clampNumber(((clientY - slideRect.top) / slideRect.height) * 100, 0, 100);
+      setPresentationZoomOrigin({ x, y });
+    }
+
+    setPresentationScreenZoom((zoom) => clampNumber(Number((zoom + delta).toFixed(2)), 0.75, 4));
   };
 
   const handlePresentationWheel = (event: React.WheelEvent<HTMLElement>) => {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
-    changeProjectionZoom(event.deltaY < 0 ? 0.08 : -0.08);
+    changePresentationScreenZoom(event.deltaY < 0 ? 0.12 : -0.12, event.clientX, event.clientY);
   };
 
   if (presenting && slideSong) {
@@ -1075,12 +1088,19 @@ function PresentationsPage() {
           </div>
         </header>
         <article ref={presentationSlideRef} className="presentation-slide">
+          <div
+            className="presentation-slide-zoom"
+            style={{
+              '--presentation-screen-zoom': presentationScreenZoom,
+              '--presentation-origin-x': `${presentationZoomOrigin.x}%`,
+              '--presentation-origin-y': `${presentationZoomOrigin.y}%`,
+            } as React.CSSProperties}
+          >
           <p className="presentation-song-meta">{slideSong.collectionName} / {songNumberLabel(slideSong)}</p>
           <h1>{slideSong.title}</h1>
           <div
             ref={projectionLyricsRef}
             className={`projection-lyrics columns-${projectionLyricColumns.length}`}
-            style={{ '--projection-zoom': projectionZoom } as React.CSSProperties}
           >
             {projectionLyricColumns.map((column, index) => {
               const columnOffset = projectionLyricColumns
@@ -1116,6 +1136,7 @@ function PresentationsPage() {
                 </div>
               );
             })}
+          </div>
           </div>
         </article>
         <footer className="presentation-controls">
