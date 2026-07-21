@@ -150,8 +150,7 @@ button:disabled {
   isolation: isolate;
   max-width: none;
   min-height: calc(100vh - 96px);
-  display: grid;
-  grid-template-rows: auto auto auto;
+  display: block;
   margin: calc(clamp(16px, 2.6vw, 30px) * -1);
   padding: clamp(16px, 2.6vw, 30px);
   overflow: visible;
@@ -533,7 +532,9 @@ h2 {
 }
 
 :root[data-presentation="on"] .reader-page {
-  grid-template-rows: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   margin: 0;
   padding: clamp(70px, 8vh, 96px) clamp(24px, 4vw, 58px) clamp(32px, 5vh, 72px);
   overflow-y: auto;
