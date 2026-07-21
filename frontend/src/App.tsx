@@ -113,8 +113,26 @@ function readLocal<T>(key: string, fallback: T): T {
   }
 }
 
+function evictOldCollectionCaches(exceptKey?: string) {
+  const collectionKeys = Object.keys(localStorage)
+    .filter((k) => k.startsWith('collection-songs:') && k !== exceptKey);
+  for (const k of collectionKeys) {
+    localStorage.removeItem(k);
+  }
+}
+
 function writeLocal<T>(key: string, value: T) {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // QuotaExceededError — evict old collection caches and retry once
+    try {
+      evictOldCollectionCaches(key);
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Still full — silently skip caching
+    }
+  }
 }
 
 function randomId() {
@@ -259,13 +277,15 @@ async function getCollectionSongsCached(slug: string, cacheKey: string): Promise
     if (!collectionMatchesRoute(data.collection, slug)) {
       throw new Error(`Loaded ${data.collection.name}, not the selected collection.`);
     }
+    // Cache write is best-effort — a QuotaExceededError must not discard fresh data
     writeLocal(cacheKey, data);
     return { data, offline: false };
-  } catch (error) {
+  } catch (fetchError) {
+    // Only fall back to cache when the network/API request itself failed
     const cached = readLocal<CollectionSongs | null>(cacheKey, null);
     if (cached && collectionMatchesRoute(cached.collection, slug)) return { data: cached, offline: true };
     if (cached) localStorage.removeItem(cacheKey);
-    throw error;
+    throw fetchError;
   }
 }
 
