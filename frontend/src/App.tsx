@@ -745,8 +745,25 @@ function ReaderPage() {
     setStatus(result.added ? 'Added to presentation' : 'Already in presentation');
   }
 
+  function exitReaderPresentation() {
+    setPresentation(false);
+    setImmersive(false);
+    exitAppFullscreen().catch(() => {});
+  }
+
   return (
     <section className={`reader-page ${immersive ? 'immersive' : ''}`} {...readerTapHandlers}>
+      {(presentation || immersive) && (
+        <button
+          className="reader-presentation-back"
+          type="button"
+          aria-label="Back to hymn reader"
+          title="Back to hymn reader"
+          onClick={exitReaderPresentation}
+        >
+          <ChevronLeft size={22} />
+        </button>
+      )}
       <div className="reader-toolbar">
         <button className="ghost-action" disabled={!adjacent?.prev} onClick={() => adjacent?.prev && navigate(`/hymns/${adjacent.prev.id}`)}>
           <ChevronLeft size={18} /> Previous hymn
