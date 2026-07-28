@@ -19,6 +19,10 @@ import { swaggerSpec } from './config/swagger';
 import apiRoutes from './routes';
 
 const app = express();
+
+// Trust the first proxy (required for Render, Heroku, etc. reverse proxies)
+// This fixes express-rate-limit's X-Forwarded-For validation error
+app.set('trust proxy', 1);
 const httpServer = createServer(app);
 const corsOrigin = env.corsOrigins.includes('*') ? true : env.corsOrigins;
 
