@@ -22,6 +22,7 @@ const SLUG_BY_CODE: Record<string, string> = {
   sss: 'sacred-songs-and-solos',
   ob2: 'only-believe-2',
   rsp2: 'roc-seculaire-paris',
+  sincerite: 'sincerite',
 };
 
 const CODE_BY_SLUG = Object.fromEntries(

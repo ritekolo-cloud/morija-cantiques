@@ -120,8 +120,19 @@ for (const batch of chunks(payload.hymns, chunkSize)) {
   `;
 }
 
-await prisma.hymn.deleteMany({ where: { sourceId: { notIn: sourceIds } } });
-await prisma.hymnCategory.deleteMany({ where: { code: { notIn: categoryCodes } } });
+// Delete imported hymns that are no longer in the JSON, but preserve user-submitted hymns
+await prisma.hymn.deleteMany({
+  where: {
+    sourceId: { notIn: sourceIds },
+    NOT: { sourceId: { startsWith: 'sincerite:user:' } },
+  },
+});
+// Delete categories removed from JSON, but preserve the Sincérité user-submission category
+await prisma.hymnCategory.deleteMany({
+  where: {
+    code: { notIn: [...categoryCodes, 'sincerite'] },
+  },
+});
 
 const [hymnCount, categoryCount] = await Promise.all([
   prisma.hymn.count(),

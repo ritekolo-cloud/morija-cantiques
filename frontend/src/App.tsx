@@ -1381,8 +1381,16 @@ function FavoritesPage() {
 }
 
 function SettingsPage() {
+  const navigate = useNavigate();
   const [dark, setDark] = useState(readLocal<string>('theme', 'light') === 'dark');
   const [fontSize, setFontSize] = useState(Math.max(readLocal('fontSize', 28), 26));
+
+  // Song submission state
+  const [songTitle, setSongTitle] = useState('');
+  const [songLyrics, setSongLyrics] = useState('');
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [submitMessage, setSubmitMessage] = useState('');
+  const [newSongId, setNewSongId] = useState<string | null>(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
@@ -1391,15 +1399,122 @@ function SettingsPage() {
 
   useEffect(() => writeLocal('fontSize', fontSize), [fontSize]);
 
+  async function handleSongSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!songTitle.trim() || !songLyrics.trim()) {
+      setSubmitStatus('error');
+      setSubmitMessage('Please enter both a title and lyrics.');
+      return;
+    }
+    setSubmitStatus('submitting');
+    setSubmitMessage('');
+    setNewSongId(null);
+    try {
+      const response = await fetch('/api/collections/sincerite/songs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ title: songTitle.trim(), lyrics: songLyrics.trim() }),
+      });
+      const body = await response.json();
+      if (!response.ok || !body.success) {
+        throw new Error(body.message || 'Submission failed');
+      }
+      setSubmitStatus('success');
+      setSubmitMessage(`"${body.data?.title || songTitle}" was added to Sincérité!`);
+      setNewSongId(body.data?.id ?? null);
+      setSongTitle('');
+      setSongLyrics('');
+    } catch (error) {
+      setSubmitStatus('error');
+      setSubmitMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+    }
+  }
+
+  function resetForm() {
+    setSubmitStatus('idle');
+    setSubmitMessage('');
+    setNewSongId(null);
+  }
+
   return (
     <section className="page">
       <div className="page-heading"><h1>Settings</h1></div>
-      <div className="settings-form">
-        <label className="toggle-line">
-          <span><Moon size={18} /> Dark mode</span>
-          <input type="checkbox" checked={dark} onChange={(event) => setDark(event.target.checked)} />
-        </label>
-        <label>Reader font size<input type="range" min="22" max="44" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label>
+
+      {/* ── Appearance ── */}
+      <div className="settings-group">
+        <h2 className="settings-group-title">Appearance</h2>
+        <div className="settings-form">
+          <label className="toggle-line">
+            <span><Moon size={18} /> Dark mode</span>
+            <input type="checkbox" checked={dark} onChange={(event) => setDark(event.target.checked)} />
+          </label>
+          <label>Reader font size<input type="range" min="22" max="44" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label>
+        </div>
+      </div>
+
+      {/* ── Add a Song ── */}
+      <div className="settings-group">
+        <h2 className="settings-group-title"><Send size={18} /> Add a Song</h2>
+        <p className="settings-group-desc">
+          Submit a new song and it will be added to the <strong>Sincérité</strong> collection, visible to everyone.
+        </p>
+
+        {submitStatus === 'success' ? (
+          <div className="submit-success">
+            <div className="submit-success-icon">✓</div>
+            <p>{submitMessage}</p>
+            <div className="submit-success-actions">
+              {newSongId && (
+                <button className="primary-action" onClick={() => navigate(`/hymns/${newSongId}`)}>
+                  <BookOpen size={16} /> View Song
+                </button>
+              )}
+              <button className="ghost-action" onClick={resetForm}>Add Another</button>
+            </div>
+          </div>
+        ) : (
+          <form className="add-song-form" onSubmit={handleSongSubmit} noValidate>
+            <div className="form-field">
+              <label htmlFor="song-title">Song Title</label>
+              <input
+                id="song-title"
+                type="text"
+                placeholder="Enter the song title…"
+                value={songTitle}
+                onChange={(e) => setSongTitle(e.target.value)}
+                disabled={submitStatus === 'submitting'}
+                maxLength={300}
+                autoComplete="off"
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="song-lyrics">Lyrics</label>
+              <textarea
+                id="song-lyrics"
+                placeholder={"Enter the song lyrics here…\n\nUse blank lines to separate verses."}
+                value={songLyrics}
+                onChange={(e) => setSongLyrics(e.target.value)}
+                disabled={submitStatus === 'submitting'}
+                rows={12}
+              />
+            </div>
+            {submitStatus === 'error' && (
+              <p className="form-error">{submitMessage}</p>
+            )}
+            <button
+              type="submit"
+              className="primary-action"
+              disabled={submitStatus === 'submitting' || !songTitle.trim() || !songLyrics.trim()}
+            >
+              {submitStatus === 'submitting' ? (
+                <><span className="spinner" /> Submitting…</>
+              ) : (
+                <><Send size={16} /> Submit Song</>
+              )}
+            </button>
+          </form>
+        )}
       </div>
     </section>
   );
