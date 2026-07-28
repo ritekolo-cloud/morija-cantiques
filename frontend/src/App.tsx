@@ -474,6 +474,7 @@ function Shell({ children }: { children: React.ReactNode }) {
               <NavButton to="/search" icon={Search} active={path === '/search'} onClick={navigate}>Search</NavButton>
               <NavButton to="/presentations" icon={ListMusic} active={path === '/presentations'} onClick={navigate}>Presentations</NavButton>
               <NavButton to="/favorites" icon={Heart} active={path === '/favorites'} onClick={navigate}>Favorites</NavButton>
+              <NavButton to="/add-song" icon={Plus} active={path === '/add-song'} onClick={navigate}>Add Song</NavButton>
               <NavButton to="/settings" icon={Settings} active={path === '/settings'} onClick={navigate}>Settings</NavButton>
             </nav>
             <div className="account-actions">
@@ -563,10 +564,16 @@ function HomePage() {
           <h1>Morija Cantiques</h1>
           <p className="home-subtitle">Choose a collection to browse hymns in their imported order.</p>
         </div>
-        <button className="primary-action" onClick={() => navigate('/search')}>
-          <Search size={18} />
-          Search
-        </button>
+        <div className="home-actions">
+          <button className="primary-action" onClick={() => navigate('/search')}>
+            <Search size={18} />
+            Search
+          </button>
+          <button className="ghost-action" onClick={() => navigate('/add-song')}>
+            <Plus size={18} />
+            Add Song
+          </button>
+        </div>
       </div>
       {status && <p className="status">{status}</p>}
       <CollectionGrid collections={collections} />
@@ -1520,6 +1527,125 @@ function SettingsPage() {
   );
 }
 
+function AddSongPage() {
+  const navigate = useNavigate();
+  const [songTitle, setSongTitle] = useState('');
+  const [songLyrics, setSongLyrics] = useState('');
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [submitMessage, setSubmitMessage] = useState('');
+  const [newSongId, setNewSongId] = useState<string | null>(null);
+
+  async function handleSongSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!songTitle.trim() || !songLyrics.trim()) {
+      setSubmitStatus('error');
+      setSubmitMessage('Please enter both a title and lyrics.');
+      return;
+    }
+    setSubmitStatus('submitting');
+    setSubmitMessage('');
+    setNewSongId(null);
+    try {
+      const response = await fetch('/api/collections/sincerite/songs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ title: songTitle.trim(), lyrics: songLyrics.trim() }),
+      });
+      const body = await response.json();
+      if (!response.ok || !body.success) throw new Error(body.message || 'Submission failed');
+      setSubmitStatus('success');
+      setSubmitMessage(`"${body.data?.title || songTitle}" was added to Sincérité!`);
+      setNewSongId(body.data?.id ?? null);
+      setSongTitle('');
+      setSongLyrics('');
+    } catch (error) {
+      setSubmitStatus('error');
+      setSubmitMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+    }
+  }
+
+  function resetForm() {
+    setSubmitStatus('idle');
+    setSubmitMessage('');
+    setNewSongId(null);
+  }
+
+  return (
+    <section className="page">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">Sincérité Collection</p>
+          <h1>Add a Song</h1>
+          <p className="home-subtitle">Share a song with the community — it will appear in the <strong>Sincérité</strong> collection for everyone to sing.</p>
+        </div>
+      </div>
+
+      <div className="settings-group">
+        {submitStatus === 'success' ? (
+          <div className="submit-success">
+            <div className="submit-success-icon">✓</div>
+            <p>{submitMessage}</p>
+            <div className="submit-success-actions">
+              {newSongId && (
+                <button className="primary-action" onClick={() => navigate(`/hymns/${newSongId}`)}>
+                  <BookOpen size={16} /> View Song
+                </button>
+              )}
+              <button className="ghost-action" onClick={() => navigate('/collections/sincerite')}>
+                <Library size={16} /> Browse Sincérité
+              </button>
+              <button className="ghost-action" onClick={resetForm}>Add Another</button>
+            </div>
+          </div>
+        ) : (
+          <form className="add-song-form" onSubmit={handleSongSubmit} noValidate>
+            <div className="form-field">
+              <label htmlFor="add-song-title">Song Title</label>
+              <input
+                id="add-song-title"
+                type="text"
+                placeholder="Enter the song title…"
+                value={songTitle}
+                onChange={(e) => setSongTitle(e.target.value)}
+                disabled={submitStatus === 'submitting'}
+                maxLength={300}
+                autoComplete="off"
+                autoFocus
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="add-song-lyrics">Lyrics</label>
+              <textarea
+                id="add-song-lyrics"
+                placeholder={"Enter the song lyrics here…\n\nUse blank lines to separate verses or choruses."}
+                value={songLyrics}
+                onChange={(e) => setSongLyrics(e.target.value)}
+                disabled={submitStatus === 'submitting'}
+                rows={14}
+              />
+            </div>
+            {submitStatus === 'error' && (
+              <p className="form-error">{submitMessage}</p>
+            )}
+            <button
+              type="submit"
+              className="primary-action"
+              disabled={submitStatus === 'submitting' || !songTitle.trim() || !songLyrics.trim()}
+            >
+              {submitStatus === 'submitting' ? (
+                <><span className="spinner" /> Submitting…</>
+              ) : (
+                <><Send size={16} /> Submit Song</>
+              )}
+            </button>
+          </form>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function RouteSwitch() {
   const location = useLocation();
   const path = location.pathname;
@@ -1531,6 +1657,7 @@ function RouteSwitch() {
   if (path === '/presentations' || path === '/app/presentations') return <PresentationsPage />;
   if (path.startsWith('/hymns/') || path.startsWith('/app/hymns/')) return <ReaderPage />;
   if (path === '/favorites' || path === '/app/favorites') return <FavoritesPage />;
+  if (path === '/add-song' || path === '/app/add-song') return <AddSongPage />;
   if (path === '/settings' || path === '/app/settings') return <SettingsPage />;
   return <HomePage />;
 }
