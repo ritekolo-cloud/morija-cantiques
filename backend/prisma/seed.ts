@@ -10,7 +10,7 @@ const collections = [
   { code: 'cc', slug: 'collection-des-cantiques', name: 'Collection des Cantiques', hymns: 511, language: 'fr' },
   { code: 'cv', slug: 'chant-de-victoire', name: 'Chant de Victoire', hymns: 324, language: 'fr' },
   { code: 'nm', slug: 'nyimbo-za-mungu', name: 'Nyimbo za Mungu', hymns: 327, language: 'sw' },
-  { code: 'nw', slug: 'nyimbo-za-wokovu', name: 'Nyimbo za Wokovu', hymns: 300, language: 'sw' },
+  { code: 'nw', slug: 'nyimbo-za-wokovu', name: 'Nyimbo za Wokovu', hymns: 360, language: 'sw' },
   { code: 'rs', slug: 'roc-seculaire', name: 'Roc Séculaire', hymns: 347, language: 'fr' },
   { code: 'qtg', slug: 'quel-temps-glorieux', name: 'Quel Temps Glorieux', hymns: 602, language: 'fr' },
   { code: 'sss', slug: 'sacred-songs-and-solos', name: 'Sacred Songs and Solos', hymns: 1200, language: 'en' },
