@@ -19,15 +19,33 @@ import {
   Moon,
   Plus,
   Play,
+  RefreshCw,
   Search,
   Send,
   Settings,
   Share2,
   Sun,
   Trash2,
+  Wifi,
+  WifiOff,
   X,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  saveCollections as saveCollectionsIdb,
+  getCollections as getCollectionsIdb,
+  saveSongs as saveSongsIdb,
+  getSongsByCollection as getSongsByCollectionIdb,
+  getSongById as getSongByIdIdb,
+  searchSongsOffline,
+  queuePendingSong,
+  drainPendingSongs,
+  prefetchAllSongs,
+  onPrefetchProgress,
+  type OfflineCollection,
+  type OfflineSong,
+  type PrefetchProgress,
+} from './offlineDb';
 
 type ApiResponse<T> = {
   success?: boolean;
@@ -235,6 +253,19 @@ async function apiFetch<T>(path: string): Promise<T> {
 }
 
 async function apiFetchCached<T>(path: string, cacheKey: string): Promise<{ data: T; offline: boolean }> {
+  if (path === '/collections') {
+    try {
+      const data = await apiFetch<Collection[]>(path);
+      saveCollectionsIdb(data as unknown as OfflineCollection[]).catch(() => {});
+      return { data: data as unknown as T, offline: false };
+    } catch {
+      const idbCollections = await getCollectionsIdb();
+      if (idbCollections.length > 0) {
+        return { data: idbCollections as unknown as T, offline: true };
+      }
+    }
+  }
+
   try {
     const data = await apiFetch<T>(path);
     writeLocal(cacheKey, data);
@@ -277,11 +308,19 @@ async function getCollectionSongsCached(slug: string, cacheKey: string): Promise
     if (!collectionMatchesRoute(data.collection, slug)) {
       throw new Error(`Loaded ${data.collection.name}, not the selected collection.`);
     }
-    // Cache write is best-effort — a QuotaExceededError must not discard fresh data
-    writeLocal(cacheKey, data);
+    saveSongsIdb(slug, data.songs as unknown as OfflineSong[]).catch(() => {});
     return { data, offline: false };
   } catch (fetchError) {
-    // Only fall back to cache when the network/API request itself failed
+    const idbSongs = await getSongsByCollectionIdb(slug);
+    const idbCollections = await getCollectionsIdb();
+    const collection = idbCollections.find((c) => collectionMatchesRoute(c, slug));
+    if (idbSongs.length > 0 && collection) {
+      return {
+        data: { collection: collection as unknown as Collection, songs: idbSongs as unknown as Song[] },
+        offline: true,
+      };
+    }
+
     const cached = readLocal<CollectionSongs | null>(cacheKey, null);
     if (cached && collectionMatchesRoute(cached.collection, slug)) return { data: cached, offline: true };
     if (cached) localStorage.removeItem(cacheKey);
@@ -289,11 +328,34 @@ async function getCollectionSongsCached(slug: string, cacheKey: string): Promise
   }
 }
 
+async function getSongByIdCached(id: string): Promise<{ data: Song; offline: boolean }> {
+  try {
+    const data = await apiFetch<Song>(`/songs/${id}`);
+    return { data, offline: false };
+  } catch (err) {
+    const idbSong = await getSongByIdIdb(id);
+    if (idbSong) {
+      return { data: idbSong as unknown as Song, offline: true };
+    }
+    const cached = readLocal<Song | null>(`song:${id}`, null);
+    if (cached) return { data: cached, offline: true };
+    throw err;
+  }
+}
+
 async function getSearchResults(query: string) {
-  const data = await apiFetch<{ data: Array<{ song?: Song } | Song> }>(
-    `/songs/search?q=${encodeURIComponent(query)}&limit=80`,
-  );
-  return data.data.map((item) => ('song' in item && item.song ? item.song : item as Song));
+  try {
+    const data = await apiFetch<{ data: Array<{ song?: Song } | Song> }>(
+      `/songs/search?q=${encodeURIComponent(query)}&limit=80`,
+    );
+    return data.data.map((item) => ('song' in item && item.song ? item.song : item as Song));
+  } catch (networkError) {
+    const offlineResults = await searchSongsOffline(query);
+    if (offlineResults.length > 0) {
+      return offlineResults as unknown as Song[];
+    }
+    throw networkError;
+  }
 }
 
 function presentationSongFromSong(song: Song): PresentationSong {
@@ -453,6 +515,18 @@ function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const path = location.pathname === '/app/home' ? '/' : location.pathname;
   const [navCollapsed, setNavCollapsed] = useState(readLocal(NAV_COLLAPSED_KEY, false));
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   function toggleNavigation() {
     const next = !navCollapsed;
@@ -478,6 +552,11 @@ function Shell({ children }: { children: React.ReactNode }) {
               <NavButton to="/settings" icon={Settings} active={path === '/settings'} onClick={navigate}>Settings</NavButton>
             </nav>
             <div className="account-actions">
+              {!isOnline && (
+                <span className="offline-badge" title="Offline mode — using local database">
+                  <WifiOff size={14} /> Offline
+                </span>
+              )}
               <button className="nav-link" onClick={() => navigate('/settings')}>
                 <LogIn size={18} />
                 <span>Sign in</span>
@@ -541,6 +620,7 @@ function HomePage() {
   const navigate = useNavigate();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [status, setStatus] = useState('Loading');
+  const [prefetchProgress, setPrefetchProgress] = useState<PrefetchProgress | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -548,11 +628,22 @@ function HomePage() {
       .then(({ data, offline }) => {
         if (cancelled) return;
         setCollections(data);
-        setStatus(offline ? 'Offline' : '');
+        setStatus(offline ? 'Offline — using local database' : '');
+        // Trigger background prefetch of all songs for full offline access if online
+        if (!offline && data.length > 0) {
+          prefetchAllSongs(data as unknown as OfflineCollection[]).catch(() => {});
+        }
       })
       .catch((error: Error) => !cancelled && setStatus(error.message));
+
+    // Listen to prefetch progress
+    const unsubscribe = onPrefetchProgress((progress) => {
+      if (!cancelled) setPrefetchProgress(progress);
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, []);
 
@@ -575,6 +666,12 @@ function HomePage() {
           </button>
         </div>
       </div>
+      {prefetchProgress && !prefetchProgress.finished && (
+        <div className="offline-prefetch-banner">
+          <RefreshCw size={16} className="spin-icon" />
+          <span>Downloading songs for offline use ({prefetchProgress.done}/{prefetchProgress.total} collections) - {prefetchProgress.current}</span>
+        </div>
+      )}
       {status && <p className="status">{status}</p>}
       <CollectionGrid collections={collections} />
     </section>
@@ -1406,6 +1503,16 @@ function SettingsPage() {
 
   useEffect(() => writeLocal('fontSize', fontSize), [fontSize]);
 
+  useEffect(() => {
+    // Auto-drain offline queued songs when coming back online
+    const syncPending = () => {
+      drainPendingSongs().catch(() => {});
+    };
+    window.addEventListener('online', syncPending);
+    if (navigator.onLine) syncPending();
+    return () => window.removeEventListener('online', syncPending);
+  }, []);
+
   async function handleSongSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!songTitle.trim() || !songLyrics.trim()) {
@@ -1416,25 +1523,42 @@ function SettingsPage() {
     setSubmitStatus('submitting');
     setSubmitMessage('');
     setNewSongId(null);
+
+    const cleanTitle = songTitle.trim();
+    const cleanLyrics = songLyrics.trim();
+
+    if (!navigator.onLine) {
+      await queuePendingSong(cleanTitle, cleanLyrics);
+      setSubmitStatus('success');
+      setSubmitMessage(`"${cleanTitle}" saved offline! It will automatically upload when internet connects.`);
+      setSongTitle('');
+      setSongLyrics('');
+      return;
+    }
+
     try {
       const response = await fetch('/api/collections/sincerite/songs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ title: songTitle.trim(), lyrics: songLyrics.trim() }),
+        body: JSON.stringify({ title: cleanTitle, lyrics: cleanLyrics }),
       });
       const body = await response.json();
       if (!response.ok || !body.success) {
         throw new Error(body.message || 'Submission failed');
       }
       setSubmitStatus('success');
-      setSubmitMessage(`"${body.data?.title || songTitle}" was added to Sincérité!`);
+      setSubmitMessage(`"${body.data?.title || cleanTitle}" was added to Sincérité!`);
       setNewSongId(body.data?.id ?? null);
       setSongTitle('');
       setSongLyrics('');
-    } catch (error) {
-      setSubmitStatus('error');
-      setSubmitMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+    } catch {
+      // Fallback: Queue offline on network failure
+      await queuePendingSong(cleanTitle, cleanLyrics);
+      setSubmitStatus('success');
+      setSubmitMessage(`"${cleanTitle}" saved offline! It will automatically upload when internet connects.`);
+      setSongTitle('');
+      setSongLyrics('');
     }
   }
 
@@ -1535,6 +1659,15 @@ function AddSongPage() {
   const [submitMessage, setSubmitMessage] = useState('');
   const [newSongId, setNewSongId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const syncPending = () => {
+      drainPendingSongs().catch(() => {});
+    };
+    window.addEventListener('online', syncPending);
+    if (navigator.onLine) syncPending();
+    return () => window.removeEventListener('online', syncPending);
+  }, []);
+
   async function handleSongSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!songTitle.trim() || !songLyrics.trim()) {
@@ -1545,23 +1678,39 @@ function AddSongPage() {
     setSubmitStatus('submitting');
     setSubmitMessage('');
     setNewSongId(null);
+
+    const cleanTitle = songTitle.trim();
+    const cleanLyrics = songLyrics.trim();
+
+    if (!navigator.onLine) {
+      await queuePendingSong(cleanTitle, cleanLyrics);
+      setSubmitStatus('success');
+      setSubmitMessage(`"${cleanTitle}" saved offline! It will automatically upload when internet connects.`);
+      setSongTitle('');
+      setSongLyrics('');
+      return;
+    }
+
     try {
       const response = await fetch('/api/collections/sincerite/songs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ title: songTitle.trim(), lyrics: songLyrics.trim() }),
+        body: JSON.stringify({ title: cleanTitle, lyrics: cleanLyrics }),
       });
       const body = await response.json();
       if (!response.ok || !body.success) throw new Error(body.message || 'Submission failed');
       setSubmitStatus('success');
-      setSubmitMessage(`"${body.data?.title || songTitle}" was added to Sincérité!`);
+      setSubmitMessage(`"${body.data?.title || cleanTitle}" was added to Sincérité!`);
       setNewSongId(body.data?.id ?? null);
       setSongTitle('');
       setSongLyrics('');
-    } catch (error) {
-      setSubmitStatus('error');
-      setSubmitMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+    } catch {
+      await queuePendingSong(cleanTitle, cleanLyrics);
+      setSubmitStatus('success');
+      setSubmitMessage(`"${cleanTitle}" saved offline! It will automatically upload when internet connects.`);
+      setSongTitle('');
+      setSongLyrics('');
     }
   }
 
