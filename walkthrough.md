@@ -84,3 +84,31 @@ All pages confirmed rendering correctly via browser screenshots:
 - **Presentations Page** (`/presentations`) → Queue builder with collection filter and song grid ✅
 - **Presentation Live Page** → Full-screen projection with title, lyrics, navigation ✅
 - **TypeScript**: `npx tsc --noEmit` → **0 errors** ✅
+
+---
+
+## Session 4: Full Offline Songs Support
+
+### Changes Made
+
+#### 1. Service Worker Asset Caching (`main.tsx` & `vite-env.d.ts`)
+- Registered Workbox Service Worker via `virtual:pwa-register` (`registerSW({ immediate: true })`).
+- Added PWA client reference types to `vite-env.d.ts` so all app assets (HTML, JS, CSS, fonts) are cached for offline startup.
+
+#### 2. Robust IndexedDB Storage Layer (`offlineDb.ts`)
+- **Normalized Collection Indexing**: `saveSongs` lowercases collection slugs and codes to prevent case-sensitive index lookup failures offline.
+- **Multi-Alias Collection Resolution**: `getSongsByCollection` looks up collections by slug, code, or ID, with fallback scanning if direct index misses.
+- **Individual Song Caching (`saveSong`)**: Added helper to store individual songs into IndexedDB when viewed or fetched online.
+- **Offline Adjacent Hymn Calculation (`getAdjacentSongsOffline`)**: Added local computation of previous and next hymns in the same collection using IndexedDB so "Previous hymn" and "Next hymn" buttons work offline.
+- **Offline Storage Statistics (`getOfflineStats`)**: Added helper returning total cached collections and hymns count.
+
+#### 3. Frontend App & UI Enhancements (`App.tsx` & `index.css`)
+- **Offline Reader Navigation**: Updated `ReaderPage` to fall back to `getAdjacentSongsOffline(id)` when offline so navigation between hymns remains fully functional.
+- **Offline Saved Hymns**: Updated `FavoritesPage` to load favorited/bookmarked song details from IndexedDB when offline.
+- **Offline Database Manager in Settings**: Added an **Offline Storage** section in `SettingsPage` showing real-time statistics (e.g. 2,450 hymns cached) with a "Download / Sync All Hymns" button and progress bar.
+
+### Verification
+
+- **TypeScript Compilation**: `npx tsc --noEmit` → **0 errors** ✅
+- **Production PWA Build**: `npm run build` → Succeeded ✅
+

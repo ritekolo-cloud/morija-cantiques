@@ -1615,4 +1615,28 @@ input {
   animation: spin 1s linear infinite;
 }
 
+.offline-stats-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-top: 12px;
+}
+
+.offline-stats-card strong {
+  display: block;
+  font-size: 1.2rem;
+  color: var(--ink);
+}
+
+.offline-stats-card small {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+
 

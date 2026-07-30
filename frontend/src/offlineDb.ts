@@ -130,31 +130,112 @@ export async function getCollections(): Promise<OfflineCollection[]> {
 
 // ─── Songs ───────────────────────────────────────────────────────────
 
+export async function saveSong(song: OfflineSong) {
+  if (!song || !song.id) return;
+  const db = await getDb();
+  const slug = (song.collectionSlug || song.collection?.slug || song.collection?.code || '').toLowerCase();
+  const tagged = { ...song, collectionSlug: slug || song.collectionSlug };
+  await db.put('songs', tagged);
+}
+
 export async function saveSongs(collectionSlug: string, songs: OfflineSong[]) {
   const db = await getDb();
+  const normSlug = collectionSlug.toLowerCase().trim();
   const tx = db.transaction('songs', 'readwrite');
-  // Tag each song with the collection slug for indexing
   for (const song of songs) {
-    const tagged = { ...song, collectionSlug };
+    const slug = (song.collectionSlug || song.collection?.slug || normSlug).toLowerCase();
+    const tagged = { ...song, collectionSlug: slug };
     await tx.store.put(tagged);
   }
   await tx.done;
-  await setMeta(`songs:${collectionSlug}:lastSync`, Date.now());
+  await setMeta(`songs:${normSlug}:lastSync`, Date.now());
 }
 
-export async function getSongsByCollection(collectionSlug: string): Promise<OfflineSong[]> {
+export async function getSongsByCollection(collectionQueryKey: string): Promise<OfflineSong[]> {
   const db = await getDb();
-  return db.getAllFromIndex('songs', 'by-collection', collectionSlug);
+  const q = collectionQueryKey.toLowerCase().trim();
+  if (!q) return [];
+
+  // Try direct index fetch
+  let songs = await db.getAllFromIndex('songs', 'by-collection', q);
+  if (songs.length > 0) return songs;
+
+  // Resolve matching collection by slug, code, or ID
+  const collections = await db.getAll('collections');
+  const matched = collections.find((c) =>
+    [c.slug, c.code, c.id].filter(Boolean).some((val) => String(val).toLowerCase().trim() === q)
+  );
+
+  if (matched) {
+    const targetSlug = (matched.slug || matched.code || '').toLowerCase();
+    songs = await db.getAllFromIndex('songs', 'by-collection', targetSlug);
+    if (songs.length > 0) return songs;
+    if (matched.code) {
+      songs = await db.getAllFromIndex('songs', 'by-collection', matched.code.toLowerCase());
+      if (songs.length > 0) return songs;
+    }
+  }
+
+  // Fallback scan: check all songs for matching collection references
+  const allSongs = await db.getAll('songs');
+  return allSongs.filter((s) => {
+    const collSlug = (s.collectionSlug || s.collection?.slug || '').toLowerCase();
+    const collCode = (s.collection?.code || '').toLowerCase();
+    const collId = (s.collectionId || s.collection?.id || '').toLowerCase();
+    return collSlug === q || collCode === q || collId === q;
+  });
 }
 
 export async function getSongById(id: string): Promise<OfflineSong | undefined> {
   const db = await getDb();
-  return db.get('songs', id);
+  const targetId = String(id).trim();
+  const direct = await db.get('songs', targetId);
+  if (direct) return direct;
+
+  const allSongs = await db.getAll('songs');
+  return allSongs.find((s) => String(s.id).trim() === targetId);
+}
+
+export async function getAdjacentSongsOffline(
+  currentSongId: string
+): Promise<{ prev: OfflineSong | null; next: OfflineSong | null }> {
+  const currentSong = await getSongById(currentSongId);
+  if (!currentSong) return { prev: null, next: null };
+
+  const slug = (currentSong.collectionSlug || currentSong.collection?.slug || currentSong.collection?.code || '').toLowerCase();
+  if (!slug) return { prev: null, next: null };
+
+  const songs = await getSongsByCollection(slug);
+  if (songs.length <= 1) return { prev: null, next: null };
+
+  // Sort sequentially by number or duplicateIndex
+  songs.sort((a, b) => {
+    const aNum = Number(a.number ?? a.songNumber ?? 0);
+    const bNum = Number(b.number ?? b.songNumber ?? 0);
+    if (aNum !== bNum) return aNum - bNum;
+    return Number(a.duplicateIndex ?? 1) - Number(b.duplicateIndex ?? 1);
+  });
+
+  const currentIndex = songs.findIndex((s) => String(s.id).trim() === String(currentSongId).trim());
+  if (currentIndex === -1) return { prev: null, next: null };
+
+  return {
+    prev: songs[currentIndex - 1] || null,
+    next: songs[currentIndex + 1] || null,
+  };
 }
 
 export async function getTotalSongCount(): Promise<number> {
   const db = await getDb();
   return db.count('songs');
+}
+
+export async function getOfflineStats(): Promise<{ collectionsCount: number; songsCount: number; lastSync: number | null }> {
+  const db = await getDb();
+  const collectionsCount = await db.count('collections');
+  const songsCount = await db.count('songs');
+  const lastSync = await getLastSyncTime();
+  return { collectionsCount, songsCount, lastSync };
 }
 
 // ─── Offline Search ──────────────────────────────────────────────────
@@ -270,12 +351,15 @@ function emitPrefetchProgress(p: PrefetchProgress) {
   for (const fn of prefetchListeners) fn(p);
 }
 
-export async function prefetchAllSongs(collections: OfflineCollection[]) {
+export async function prefetchAllSongs(collections: OfflineCollection[], forceRefresh = false) {
   if (prefetchInProgress) return;
   prefetchInProgress = true;
 
   const total = collections.length;
   let done = 0;
+
+  // Save collections to IndexedDB as well
+  await saveCollections(collections);
 
   for (const coll of collections) {
     const slug = coll.slug || coll.code || '';
@@ -284,14 +368,15 @@ export async function prefetchAllSongs(collections: OfflineCollection[]) {
     emitPrefetchProgress({ total, done, current: coll.name, finished: false });
 
     // Check if we already have songs cached for this collection
-    const existing = await getSongsByCollection(slug);
-    if (existing.length > 0) {
-      done++;
-      continue;
+    if (!forceRefresh) {
+      const existing = await getSongsByCollection(slug);
+      if (existing.length > 0) {
+        done++;
+        continue;
+      }
     }
 
     try {
-      // Fetch all pages for this collection
       const pageSize = 100;
       const firstRes = await fetch(`/api/collections/${slug}/songs?page=1&limit=${pageSize}`, {
         headers: { Accept: 'application/json' },

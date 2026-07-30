@@ -34,9 +34,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   saveCollections as saveCollectionsIdb,
   getCollections as getCollectionsIdb,
+  saveSong as saveSongIdb,
   saveSongs as saveSongsIdb,
   getSongsByCollection as getSongsByCollectionIdb,
   getSongById as getSongByIdIdb,
+  getAdjacentSongsOffline,
+  getOfflineStats,
   searchSongsOffline,
   queuePendingSong,
   drainPendingSongs,
@@ -331,6 +334,7 @@ async function getCollectionSongsCached(slug: string, cacheKey: string): Promise
 async function getSongByIdCached(id: string): Promise<{ data: Song; offline: boolean }> {
   try {
     const data = await apiFetch<Song>(`/songs/${id}`);
+    saveSongIdb(data as unknown as OfflineSong).catch(() => {});
     return { data, offline: false };
   } catch (err) {
     const idbSong = await getSongByIdIdb(id);
@@ -807,15 +811,24 @@ function ReaderPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      apiFetchCached<Song>(`/songs/${id}`, `song:${id}`),
-      apiFetch<AdjacentSongs>(`/songs/${id}/adjacent`).catch(() => null),
-    ])
-      .then(([songResponse, adjacentResponse]) => {
+    apiFetchCached<Song>(`/songs/${id}`, `song:${id}`)
+      .then(async (songResponse) => {
         if (cancelled) return;
         setSong(songResponse.data);
-        setAdjacent(adjacentResponse);
         setStatus(songResponse.offline ? 'Offline' : '');
+
+        try {
+          const adjacentResponse = await apiFetch<AdjacentSongs>(`/songs/${id}/adjacent`);
+          if (!cancelled) setAdjacent(adjacentResponse);
+        } catch {
+          const offlineAdjacent = await getAdjacentSongsOffline(id);
+          if (!cancelled) {
+            setAdjacent({
+              prev: offlineAdjacent.prev as unknown as Song | null,
+              next: offlineAdjacent.next as unknown as Song | null,
+            });
+          }
+        }
       })
       .catch((error: Error) => !cancelled && setStatus(error.message));
     return () => {
@@ -1488,6 +1501,9 @@ function SettingsPage() {
   const navigate = useNavigate();
   const [dark, setDark] = useState(readLocal<string>('theme', 'light') === 'dark');
   const [fontSize, setFontSize] = useState(Math.max(readLocal('fontSize', 28), 26));
+  const [offlineStats, setOfflineStats] = useState<{ collectionsCount: number; songsCount: number } | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [prefetchProgress, setPrefetchProgress] = useState<PrefetchProgress | null>(null);
 
   // Song submission state
   const [songTitle, setSongTitle] = useState('');
@@ -1504,6 +1520,18 @@ function SettingsPage() {
   useEffect(() => writeLocal('fontSize', fontSize), [fontSize]);
 
   useEffect(() => {
+    getOfflineStats().then(setOfflineStats).catch(() => {});
+    const unsubscribe = onPrefetchProgress((progress) => {
+      setPrefetchProgress(progress);
+      if (progress.finished) {
+        setDownloading(false);
+        getOfflineStats().then(setOfflineStats).catch(() => {});
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     // Auto-drain offline queued songs when coming back online
     const syncPending = () => {
       drainPendingSongs().catch(() => {});
@@ -1512,6 +1540,22 @@ function SettingsPage() {
     if (navigator.onLine) syncPending();
     return () => window.removeEventListener('online', syncPending);
   }, []);
+
+  async function handleSyncAllSongs() {
+    setDownloading(true);
+    try {
+      const colls = await apiFetch<Collection[]>('/collections');
+      await saveCollectionsIdb(colls as unknown as OfflineCollection[]);
+      prefetchAllSongs(colls as unknown as OfflineCollection[], true).catch(() => setDownloading(false));
+    } catch {
+      const idbColls = await getCollectionsIdb();
+      if (idbColls.length > 0) {
+        prefetchAllSongs(idbColls, true).catch(() => setDownloading(false));
+      } else {
+        setDownloading(false);
+      }
+    }
+  }
 
   async function handleSongSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -1582,6 +1626,30 @@ function SettingsPage() {
           </label>
           <label>Reader font size<input type="range" min="22" max="44" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label>
         </div>
+      </div>
+
+      {/* ── Offline Storage ── */}
+      <div className="settings-group">
+        <h2 className="settings-group-title"><WifiOff size={18} /> Offline Storage</h2>
+        <p className="settings-group-desc">
+          Download all 13 hymn collections to your device for complete offline access without an internet connection.
+        </p>
+        <div className="offline-stats-card">
+          <div>
+            <strong>{offlineStats ? `${offlineStats.songsCount.toLocaleString()} Hymns` : 'Checking...'}</strong>
+            <small>{offlineStats ? `${offlineStats.collectionsCount} collections cached` : 'Local database'}</small>
+          </div>
+          <button className="primary-action" onClick={handleSyncAllSongs} disabled={downloading}>
+            <RefreshCw size={16} className={downloading ? 'spin-icon' : ''} />
+            {downloading ? 'Downloading...' : 'Download / Sync All Hymns'}
+          </button>
+        </div>
+        {prefetchProgress && !prefetchProgress.finished && (
+          <div className="offline-prefetch-banner" style={{ marginTop: '12px' }}>
+            <RefreshCw size={16} className="spin-icon" />
+            <span>Downloading hymns ({prefetchProgress.done}/{prefetchProgress.total} collections) — {prefetchProgress.current}</span>
+          </div>
+        )}
       </div>
 
       {/* ── Add a Song ── */}
