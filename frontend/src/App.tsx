@@ -269,6 +269,12 @@ async function apiFetchCached<T>(path: string, cacheKey: string): Promise<{ data
     }
   }
 
+  // For individual song paths, also try IndexedDB
+  const songIdMatch = path.match(/^\/songs\/([^/]+)$/);
+  if (songIdMatch) {
+    return getSongByIdCached(songIdMatch[1]) as unknown as Promise<{ data: T; offline: boolean }>;
+  }
+
   try {
     const data = await apiFetch<T>(path);
     writeLocal(cacheKey, data);
@@ -347,18 +353,15 @@ async function getSongByIdCached(id: string): Promise<{ data: Song; offline: boo
   }
 }
 
-async function getSearchResults(query: string) {
+async function getSearchResults(query: string): Promise<Song[]> {
   try {
     const data = await apiFetch<{ data: Array<{ song?: Song } | Song> }>(
       `/songs/search?q=${encodeURIComponent(query)}&limit=80`,
     );
     return data.data.map((item) => ('song' in item && item.song ? item.song : item as Song));
-  } catch (networkError) {
-    const offlineResults = await searchSongsOffline(query);
-    if (offlineResults.length > 0) {
-      return offlineResults as unknown as Song[];
-    }
-    throw networkError;
+  } catch {
+    // Always fall back to local IndexedDB search — never re-throw network errors
+    return searchSongsOffline(query) as unknown as Promise<Song[]>;
   }
 }
 
@@ -633,8 +636,8 @@ function HomePage() {
         if (cancelled) return;
         setCollections(data);
         setStatus(offline ? 'Offline — using local database' : '');
-        // Trigger background prefetch of all songs for full offline access if online
-        if (!offline && data.length > 0) {
+        // Always trigger background prefetch — it skips collections already cached offline
+        if (data.length > 0) {
           prefetchAllSongs(data as unknown as OfflineCollection[]).catch(() => {});
         }
       })
@@ -965,20 +968,11 @@ function SearchPage() {
     const trimmed = query.trim();
     if (!trimmed) return;
     setStatus('Searching');
-    try {
-      const songs = await getSearchResults(trimmed);
-      setResults(songs);
-      writeLocal(`search:${trimmed}`, songs);
-      setStatus('');
-    } catch (error) {
-      const cached = readLocal<Song[] | null>(`search:${trimmed}`, null);
-      if (cached) {
-        setResults(cached);
-        setStatus('Offline');
-      } else {
-        setStatus(error instanceof Error ? error.message : 'Search failed');
-      }
-    }
+    const songs = await getSearchResults(trimmed);
+    setResults(songs);
+    if (songs.length > 0) writeLocal(`search:${trimmed}`, songs);
+    const isOnline = navigator.onLine;
+    setStatus(isOnline ? '' : 'Offline — searching local database');
   }
 
   return (
@@ -1423,8 +1417,13 @@ function FavoritesPage() {
     const ids = activeTab === 'favorites' ? favoriteIds : bookmarkIds;
     if (ids.length === 0) { setSongs([]); return; }
     setStatus('Loading');
-    Promise.all(ids.map((id) => apiFetchCached<Song>(`/songs/${id}`, `song:${id}`)))
-      .then((results) => { setSongs(results.map((r) => r.data).filter(Boolean)); setStatus(''); })
+    // Use getSongByIdCached which falls back to IndexedDB, then localStorage — works offline
+    Promise.all(ids.map((id) => getSongByIdCached(id).catch(() => null)))
+      .then((results) => {
+        const loaded = results.filter(Boolean).map((r) => r!.data);
+        setSongs(loaded);
+        setStatus(loaded.length < ids.length ? 'Some hymns could not be loaded' : '');
+      })
       .catch(() => setStatus('Failed to load saved hymns.'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
