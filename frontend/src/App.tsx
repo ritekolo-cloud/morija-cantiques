@@ -1590,6 +1590,19 @@ function SettingsPage() {
       if (!response.ok || !body.success) {
         throw new Error(body.message || 'Submission failed');
       }
+      if (body.data?.id) {
+        saveSongIdb({
+          id: String(body.data.id),
+          songNumber: body.data.songNumber,
+          number: body.data.number,
+          title: body.data.title || cleanTitle,
+          collectionSlug: 'sincerite',
+          collectionName: 'Sincérité',
+          rawLyrics: cleanLyrics,
+          sections: body.data.sections,
+          lyrics: body.data.lyrics,
+        }).catch(() => {});
+      }
       setSubmitStatus('success');
       setSubmitMessage(`"${body.data?.title || cleanTitle}" was added to Sincérité!`);
       setNewSongId(body.data?.id ?? null);
@@ -1767,6 +1780,19 @@ function AddSongPage() {
       });
       const body = await response.json();
       if (!response.ok || !body.success) throw new Error(body.message || 'Submission failed');
+      if (body.data?.id) {
+        saveSongIdb({
+          id: String(body.data.id),
+          songNumber: body.data.songNumber,
+          number: body.data.number,
+          title: body.data.title || cleanTitle,
+          collectionSlug: 'sincerite',
+          collectionName: 'Sincérité',
+          rawLyrics: cleanLyrics,
+          sections: body.data.sections,
+          lyrics: body.data.lyrics,
+        }).catch(() => {});
+      }
       setSubmitStatus('success');
       setSubmitMessage(`"${body.data?.title || cleanTitle}" was added to Sincérité!`);
       setNewSongId(body.data?.id ?? null);

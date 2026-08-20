@@ -9,7 +9,13 @@ import { z } from 'zod';
 const router = Router();
 
 // Ensure the Sincérité category exists (user submission collection)
-async function ensureSinceriteCategory() {
+export async function ensureSinceriteCategory() {
+  const existing = await prisma.hymnCategory.findUnique({
+    where: { code: 'sincerite' },
+    include: { _count: { select: { hymns: true } } },
+  });
+
+  const count = existing?._count?.hymns ?? 0;
   const data = {
     code: 'sincerite',
     name: 'Sincérité',
@@ -18,12 +24,17 @@ async function ensureSinceriteCategory() {
     languageName: 'Français',
     sourceOrder: 99,
     sourceDeclaredCount: null,
-    hymnCount: 0,
+    hymnCount: count,
   };
-  await prisma.hymnCategory.upsert({
+
+  return prisma.hymnCategory.upsert({
     where: { code: 'sincerite' },
     create: data,
-    update: { name: data.name, description: data.description },
+    update: {
+      name: data.name,
+      description: data.description,
+      hymnCount: count,
+    },
   });
 }
 
@@ -36,6 +47,7 @@ const submitSongSchema = z.object({
 
 router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    await ensureSinceriteCategory().catch(() => {});
     const collections = await prisma.hymnCategory.findMany({
       orderBy: { sourceOrder: 'asc' },
       include: { _count: { select: { hymns: true } } },
@@ -49,8 +61,13 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
 
 router.get('/:slug', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const code = categoryCodeFromSlug(req.params.slug);
+    if (code === 'sincerite') {
+      await ensureSinceriteCategory().catch(() => {});
+    }
+
     const collection = await prisma.hymnCategory.findUnique({
-      where: { code: categoryCodeFromSlug(req.params.slug) },
+      where: { code },
       include: { _count: { select: { hymns: true } } },
     });
 
@@ -63,8 +80,13 @@ router.get('/:slug', async (req: Request, res: Response, next: NextFunction) => 
 
 router.get('/:slug/songs', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const code = categoryCodeFromSlug(req.params.slug);
+    if (code === 'sincerite') {
+      await ensureSinceriteCategory().catch(() => {});
+    }
+
     const collection = await prisma.hymnCategory.findUnique({
-      where: { code: categoryCodeFromSlug(req.params.slug) },
+      where: { code },
       include: { _count: { select: { hymns: true } } },
     });
 

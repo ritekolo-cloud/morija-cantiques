@@ -120,11 +120,38 @@ for (const batch of chunks(payload.hymns, chunkSize)) {
   `;
 }
 
+// Ensure Sincérité category exists and recount its user-submitted hymns
+const sinceriteHymnCount = await prisma.hymn.count({
+  where: { categoryCode: 'sincerite' },
+});
+
+await prisma.hymnCategory.upsert({
+  where: { code: 'sincerite' },
+  create: {
+    code: 'sincerite',
+    name: 'Sincérité',
+    description: 'Chansons ajoutées par les utilisateurs',
+    language: 'fr',
+    languageName: 'Français',
+    region: null,
+    owner: 'Users',
+    sourceOrder: 99,
+    sourceDeclaredCount: null,
+    hymnCount: sinceriteHymnCount,
+  },
+  update: {
+    name: 'Sincérité',
+    description: 'Chansons ajoutées par les utilisateurs',
+    hymnCount: sinceriteHymnCount,
+  },
+});
+
 // Delete imported hymns that are no longer in the JSON, but preserve user-submitted hymns
 await prisma.hymn.deleteMany({
   where: {
     sourceId: { notIn: sourceIds },
     NOT: { sourceId: { startsWith: 'sincerite:user:' } },
+    categoryCode: { not: 'sincerite' },
   },
 });
 // Delete categories removed from JSON, but preserve the Sincérité user-submission category

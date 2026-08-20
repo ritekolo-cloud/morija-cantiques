@@ -123,9 +123,43 @@ export async function saveCollections(collections: OfflineCollection[]) {
   await setMeta('collections:lastSync', Date.now());
 }
 
+export const DEFAULT_OFFLINE_COLLECTIONS: OfflineCollection[] = [
+  { id: '1', code: 'ob', slug: 'only-believe', name: 'Only believe', language: 'English', importedHymnCount: 222, songCount: 222, sourceOrder: 1 },
+  { id: '2', code: 'cs', slug: 'crois-seulement', name: 'Crois seulement', language: 'French', importedHymnCount: 226, songCount: 226, sourceOrder: 2 },
+  { id: '3', code: 'hos', slug: 'hosanna', name: 'Hosanna', language: 'French', importedHymnCount: 247, songCount: 247, sourceOrder: 3 },
+  { id: '4', code: 'ac', slug: 'autres-cantiques', name: 'Autres cantiques', language: 'Mixed', importedHymnCount: 214, songCount: 214, sourceOrder: 4 },
+  { id: '5', code: 'cc', slug: 'collection-des-cantiques', name: 'Collection des cantiques', language: 'Mixed', importedHymnCount: 511, songCount: 511, sourceOrder: 5 },
+  { id: '6', code: 'cv', slug: 'chant-de-victoire', name: 'Chant de victoire', language: 'French', importedHymnCount: 324, songCount: 324, sourceOrder: 6 },
+  { id: '7', code: 'nm', slug: 'nyimbo-za-mungu', name: 'Nyimbo za mungu', language: 'Swahili', importedHymnCount: 327, songCount: 327, sourceOrder: 7 },
+  { id: '8', code: 'nw', slug: 'nyimbo-za-wokovu', name: 'Nyimbo za wokovu', language: 'Swahili', importedHymnCount: 360, songCount: 360, sourceOrder: 8 },
+  { id: '9', code: 'rs', slug: 'roc-seculaire', name: 'Roc séculaire', language: 'Mixed', importedHymnCount: 347, songCount: 347, sourceOrder: 9 },
+  { id: '10', code: 'qtg', slug: 'quel-temps-glorieux', name: 'Quel temps glorieux', language: 'Mixed', importedHymnCount: 602, songCount: 602, sourceOrder: 10 },
+  { id: '11', code: 'sss', slug: 'sacred-songs-and-solos', name: 'Sacred songs and solos', language: 'English', importedHymnCount: 1200, songCount: 1200, sourceOrder: 11 },
+  { id: '12', code: 'ob2', slug: 'only-believe-2', name: 'Only believe - 2', language: 'English', importedHymnCount: 1085, songCount: 1085, sourceOrder: 12 },
+  { id: '13', code: 'rsp2', slug: 'roc-seculaire-paris', name: 'Roc séculaire Paris', language: 'French', importedHymnCount: 604, songCount: 604, sourceOrder: 13 },
+  { id: '14', code: 'sincerite', slug: 'sincerite', name: 'Sincérité', language: 'French', importedHymnCount: 0, songCount: 0, sourceOrder: 99 },
+];
+
 export async function getCollections(): Promise<OfflineCollection[]> {
   const db = await getDb();
-  return db.getAll('collections');
+  let collections = await db.getAll('collections');
+  if (collections.length === 0) {
+    collections = [...DEFAULT_OFFLINE_COLLECTIONS];
+    await saveCollections(collections);
+  } else if (!collections.some((c) => c.slug === 'sincerite' || c.code === 'sincerite')) {
+    const sinceriteColl: OfflineCollection = {
+      id: 'sincerite',
+      code: 'sincerite',
+      slug: 'sincerite',
+      name: 'Sincérité',
+      language: 'French',
+      songCount: 0,
+      importedHymnCount: 0,
+      sourceOrder: 99,
+    };
+    collections.push(sinceriteColl);
+  }
+  return collections;
 }
 
 // ─── Songs ───────────────────────────────────────────────────────────
@@ -158,32 +192,63 @@ export async function getSongsByCollection(collectionQueryKey: string): Promise<
 
   // Try direct index fetch
   let songs = await db.getAllFromIndex('songs', 'by-collection', q);
-  if (songs.length > 0) return songs;
 
-  // Resolve matching collection by slug, code, or ID
-  const collections = await db.getAll('collections');
-  const matched = collections.find((c) =>
-    [c.slug, c.code, c.id].filter(Boolean).some((val) => String(val).toLowerCase().trim() === q)
-  );
+  if (songs.length === 0) {
+    // Resolve matching collection by slug, code, or ID
+    const collections = await db.getAll('collections');
+    const matched = collections.find((c) =>
+      [c.slug, c.code, c.id].filter(Boolean).some((val) => String(val).toLowerCase().trim() === q)
+    );
 
-  if (matched) {
-    const targetSlug = (matched.slug || matched.code || '').toLowerCase();
-    songs = await db.getAllFromIndex('songs', 'by-collection', targetSlug);
-    if (songs.length > 0) return songs;
-    if (matched.code) {
-      songs = await db.getAllFromIndex('songs', 'by-collection', matched.code.toLowerCase());
-      if (songs.length > 0) return songs;
+    if (matched) {
+      const targetSlug = (matched.slug || matched.code || '').toLowerCase();
+      songs = await db.getAllFromIndex('songs', 'by-collection', targetSlug);
+      if (songs.length === 0 && matched.code) {
+        songs = await db.getAllFromIndex('songs', 'by-collection', matched.code.toLowerCase());
+      }
     }
   }
 
   // Fallback scan: check all songs for matching collection references
-  const allSongs = await db.getAll('songs');
-  return allSongs.filter((s) => {
-    const collSlug = (s.collectionSlug || s.collection?.slug || '').toLowerCase();
-    const collCode = (s.collection?.code || '').toLowerCase();
-    const collId = (s.collectionId || s.collection?.id || '').toLowerCase();
-    return collSlug === q || collCode === q || collId === q;
-  });
+  if (songs.length === 0) {
+    const allSongs = await db.getAll('songs');
+    songs = allSongs.filter((s) => {
+      const collSlug = (s.collectionSlug || s.collection?.slug || '').toLowerCase();
+      const collCode = (s.collection?.code || '').toLowerCase();
+      const collId = (s.collectionId || s.collection?.id || '').toLowerCase();
+      return collSlug === q || collCode === q || collId === q;
+    });
+  }
+
+  // If querying Sincérité, also merge any pending un-synced songs so they are immediately visible
+  if (q === 'sincerite') {
+    const pending = await getPendingSongs();
+    for (const p of pending) {
+      if (!songs.some((s) => s.id === p.localId || s.title.toUpperCase() === p.title.toUpperCase())) {
+        const lyricsLines = p.lyrics.split('\n');
+        const sections = lyricsLines
+          .join('\n')
+          .split(/\n\s*\n/)
+          .map((block, index) => ({
+            type: 'verse',
+            label: `Verse ${index + 1}`,
+            lines: block.trim().split('\n').map((l) => l.trim()).filter(Boolean),
+          }));
+        songs.push({
+          id: p.localId,
+          title: p.title.toUpperCase(),
+          lyrics: JSON.stringify(sections),
+          rawLyrics: p.lyrics,
+          sections,
+          collectionSlug: 'sincerite',
+          collectionName: 'Sincérité',
+          category: 'Sincérité',
+        });
+      }
+    }
+  }
+
+  return songs;
 }
 
 export async function getSongById(id: string): Promise<OfflineSong | undefined> {
@@ -285,6 +350,30 @@ export async function queuePendingSong(title: string, lyrics: string): Promise<P
     synced: false,
   };
   await db.put('pendingSongs', entry);
+
+  // Immediately store in offline songs store so user can read/search right away
+  const lyricsLines = lyrics.split('\n');
+  const sections = lyricsLines
+    .join('\n')
+    .split(/\n\s*\n/)
+    .map((block, index) => ({
+      type: 'verse',
+      label: `Verse ${index + 1}`,
+      lines: block.trim().split('\n').map((l) => l.trim()).filter(Boolean),
+    }));
+
+  const offlineSong: OfflineSong = {
+    id: entry.localId,
+    title: title.trim().toUpperCase(),
+    lyrics: JSON.stringify(sections),
+    rawLyrics: lyrics.trim(),
+    sections,
+    collectionSlug: 'sincerite',
+    collectionName: 'Sincérité',
+    category: 'Sincérité',
+  };
+  await db.put('songs', offlineSong);
+
   return entry;
 }
 
@@ -307,6 +396,7 @@ export async function drainPendingSongs(): Promise<{ synced: number; failed: num
   const pending = await getPendingSongs();
   let synced = 0;
   let failed = 0;
+  const db = await getDb();
 
   for (const song of pending) {
     try {
@@ -317,6 +407,23 @@ export async function drainPendingSongs(): Promise<{ synced: number; failed: num
         body: JSON.stringify({ title: song.title, lyrics: song.lyrics }),
       });
       if (response.ok) {
+        const body = await response.json();
+        const serverSong = body.data;
+        if (serverSong?.id) {
+          // Replace temporary localId with actual server song
+          await db.delete('songs', song.localId);
+          await saveSong({
+            id: String(serverSong.id),
+            songNumber: serverSong.songNumber,
+            number: serverSong.number,
+            title: serverSong.title,
+            collectionSlug: 'sincerite',
+            collectionName: 'Sincérité',
+            rawLyrics: serverSong.rawLyrics || song.lyrics,
+            sections: serverSong.sections,
+            lyrics: serverSong.lyrics,
+          });
+        }
         await markPendingSynced(song.localId);
         synced++;
       } else {

@@ -11,16 +11,15 @@ services:
     plan: free
     repo: https://github.com/ritekolo-cloud/morija-cantiques
     # Build: install deps → generate Prisma client → build TS + React
-    #        → run migrations → import hymns (idempotent upsert, safe to repeat)
     buildCommand: >-
       npm install --include=dev &&
       npx prisma generate --schema=backend/prisma/schema.prisma &&
       npm run build
-    preDeployCommand: >-
+    # Start: run database migrations → import hymns → launch compiled server
+    startCommand: >-
       npx prisma migrate deploy --schema=backend/prisma/schema.prisma &&
-      node backend/scripts/import-hymns.mjs
-    # Start: simply launch the compiled server — no heavy work at runtime
-    startCommand: npm start
+      node backend/scripts/import-hymns.mjs &&
+      npm start
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
