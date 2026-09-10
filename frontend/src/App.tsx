@@ -353,7 +353,23 @@ async function getCollectionSongsCached(slug: string, cacheKey: string): Promise
     if (!collectionMatchesRoute(data.collection, slug)) {
       throw new Error(`Loaded ${data.collection.name}, not the selected collection.`);
     }
-    saveSongsIdb(slug, data.songs as unknown as OfflineSong[]).catch(() => {});
+    await saveSongsIdb(slug, data.songs as unknown as OfflineSong[]).catch(() => {});
+    if (slug.toLowerCase() === 'sincerite') {
+      const localSongs = await getSongsByCollectionIdb(slug);
+      const serverIds = new Set(data.songs.map((song) => String(song.id)));
+      const mergedSongs = [
+        ...data.songs,
+        ...(localSongs as unknown as Song[]).filter((song) => !serverIds.has(String(song.id))),
+      ];
+      const count = Math.max(collectionCount(data.collection), mergedSongs.length);
+      return {
+        data: {
+          collection: { ...data.collection, songCount: count, importedHymnCount: count },
+          songs: mergedSongs,
+        },
+        offline: false,
+      };
+    }
     return { data, offline: false };
   } catch (fetchError) {
     const idbSongs = await getSongsByCollectionIdb(slug);

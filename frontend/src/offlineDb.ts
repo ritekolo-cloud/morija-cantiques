@@ -123,8 +123,24 @@ async function getMeta(key: string): Promise<string | number | null> {
 
 export async function saveCollections(collections: OfflineCollection[]) {
   const db = await getDb();
+  const normalized: OfflineCollection[] = [];
+  for (const collection of collections) {
+    const existingSongs = collection.slug.toLowerCase() === 'sincerite'
+      ? await getSongsByCollection(collection.slug)
+      : [];
+    const serverCount = Math.max(collection.songCount ?? 0, collection.importedHymnCount ?? 0);
+    const count = collection.slug.toLowerCase() === 'sincerite'
+      ? Math.max(serverCount, existingSongs.length)
+      : serverCount;
+    normalized.push({
+      ...collection,
+      ...(collection.slug.toLowerCase() === 'sincerite'
+        ? { songCount: count, importedHymnCount: count }
+        : {}),
+    });
+  }
   const tx = db.transaction('collections', 'readwrite');
-  await Promise.all(collections.map((c) => tx.store.put(c)));
+  for (const collection of normalized) await tx.store.put(collection);
   await tx.done;
   await setMeta('collections:lastSync', Date.now());
 }
@@ -176,6 +192,7 @@ export async function saveSong(song: OfflineSong) {
   const slug = (song.collectionSlug || song.collection?.slug || song.collection?.code || '').toLowerCase();
   const tagged = { ...song, collectionSlug: slug || song.collectionSlug };
   await db.put('songs', tagged);
+  if (slug === 'sincerite') await refreshSinceriteCount(db);
 }
 
 export async function saveSongs(collectionSlug: string, songs: OfflineSong[]) {
@@ -189,6 +206,15 @@ export async function saveSongs(collectionSlug: string, songs: OfflineSong[]) {
   }
   await tx.done;
   await setMeta(`songs:${normSlug}:lastSync`, Date.now());
+  if (normSlug === 'sincerite') await refreshSinceriteCount(db);
+}
+
+async function refreshSinceriteCount(db: IDBPDatabase<MorijaDB>) {
+  const collection = await db.get('collections', 'sincerite');
+  if (!collection) return;
+  const songs = await db.getAllFromIndex('songs', 'by-collection', 'sincerite');
+  const count = songs.length;
+  await db.put('collections', { ...collection, songCount: count, importedHymnCount: count });
 }
 
 export async function getSongsByCollection(collectionQueryKey: string): Promise<OfflineSong[]> {
@@ -483,7 +509,8 @@ export async function prefetchAllSongs(collections: OfflineCollection[], forceRe
     // Check if we already have songs cached for this collection
     if (!forceRefresh) {
       const existing = await getSongsByCollection(slug);
-      if (existing.length > 0) {
+      const expected = Math.max(coll.songCount ?? 0, coll.importedHymnCount ?? 0);
+      if (existing.length > 0 && (!expected || existing.length >= expected)) {
         done++;
         continue;
       }
