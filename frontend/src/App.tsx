@@ -10,15 +10,22 @@ import {
   ChevronUp,
   Copy,
   Heart,
+  HeartHandshake,
   Home,
   Library,
   ListMusic,
-  LogIn,
   Minus,
   Monitor,
+  MonitorUp,
+  Mail,
+  MessageCircle,
+  MousePointer2,
   Moon,
   Plus,
   Play,
+  Phone,
+  Presentation,
+  Radio,
   RefreshCw,
   Search,
   Send,
@@ -119,9 +126,23 @@ type PresentationSong = Song & {
   categoryCode?: string;
 };
 
+type PresentationPointerMode = 'off' | 'laser' | 'spotlight' | 'ink';
+
+type ProjectionState = {
+  type: 'presentation-state';
+  songs: PresentationSong[];
+  selectedIndex: number;
+  zoom: number;
+  zoomOrigin: { x: number; y: number };
+  pointer: { x: number; y: number };
+  pointerMode: PresentationPointerMode;
+  background: string;
+};
+
 const COLLECTIONS_CACHE_KEY = 'collections:v2';
 const PRESENTATION_SONGS_KEY = 'presentation:songs:v1';
 const PRESENTATION_SCREEN_ZOOM_KEY = 'presentation:screen-zoom:v1';
+const PRESENTATION_BACKGROUND_KEY = 'presentation:background:v1';
 const NAV_COLLAPSED_KEY = 'ui:nav-collapsed:v1';
 const DOUBLE_TAP_DELAY_MS = 320;
 
@@ -162,6 +183,16 @@ function randomId() {
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function presentationInkColor(background: string) {
+  const match = background.trim().match(/^#([\da-f]{6})$/i);
+  if (!match) return '#24104f';
+  const red = Number.parseInt(match[1].slice(0, 2), 16);
+  const green = Number.parseInt(match[1].slice(2, 4), 16);
+  const blue = Number.parseInt(match[1].slice(4, 6), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+  return luminance > 0.62 ? '#24104f' : '#fffdf5';
 }
 
 function isInteractiveTarget(target: EventTarget | null) {
@@ -496,6 +527,83 @@ function splitProjectionLyrics(lyrics: string) {
   return columns.filter((column) => column.length > 0);
 }
 
+function PresentationSlideCanvas({
+  song,
+  background = '#cdeeff',
+  zoom = 1,
+  zoomOrigin = { x: 50, y: 50 },
+  pointer,
+  pointerMode = 'off',
+  onPointerMove,
+}: {
+  song: PresentationSong;
+  background?: string;
+  zoom?: number;
+  zoomOrigin?: { x: number; y: number };
+  pointer?: { x: number; y: number };
+  pointerMode?: PresentationPointerMode;
+  onPointerMove?: (event: React.PointerEvent<HTMLElement>) => void;
+}) {
+  const projectionLyricColumns = useMemo(() => splitProjectionLyrics(normalizePlainLyrics(song)), [song]);
+
+  return (
+    <article
+      className="presentation-slide"
+      onPointerMove={onPointerMove}
+      style={{ background, '--presentation-ink': presentationInkColor(background) } as React.CSSProperties}
+    >
+      <div
+        className="presentation-slide-zoom"
+        style={{
+          '--presentation-screen-zoom': zoom,
+          '--presentation-origin-x': `${zoomOrigin.x}%`,
+          '--presentation-origin-y': `${zoomOrigin.y}%`,
+        } as React.CSSProperties}
+      >
+        <p className="presentation-song-meta">{song.collectionName} / {songNumberLabel(song)}</p>
+        <h1>{song.title}</h1>
+        <div className={`projection-lyrics columns-${projectionLyricColumns.length}`}>
+          {projectionLyricColumns.map((column, index) => {
+            const columnOffset = projectionLyricColumns
+              .slice(0, index)
+              .reduce((total, currentColumn) => total + currentColumn.length, 0);
+
+            return (
+              <div className="projection-lyric-column" key={`${song.id}-column-${index}`}>
+                {column.map((stanza, stanzaIndex) => {
+                  const partNumber = columnOffset + stanzaIndex + 1;
+                  const isChorus = isProjectionChorus(stanza);
+
+                  return (
+                    <div className="projection-stanza-group" key={`${song.id}-stanza-${index}-${stanzaIndex}`}>
+                      <span className={`projection-part-number ${isChorus ? 'projection-part-number-chorus' : ''}`}>
+                        {partNumber}
+                      </span>
+                      <div className={`projection-stanza ${isChorus ? 'projection-stanza-chorus' : ''}`}>
+                        {stanza.map((line, lineIndex) => <p key={`${line}-${lineIndex}`}>{line || String.fromCharCode(160)}</p>)}
+                      </div>
+                      {stanzaIndex < column.length - 1 && (
+                        <div className="projection-divider" aria-hidden="true"><span /><b>✣</b><span /></div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {pointer && pointerMode !== 'off' && (
+        <span
+          className={`presentation-pointer presentation-pointer-${pointerMode}`}
+          style={{ '--pointer-x': `${pointer.x}%`, '--pointer-y': `${pointer.y}%` } as React.CSSProperties}
+          aria-hidden="true"
+        />
+      )}
+    </article>
+  );
+}
+
 function NavButton({
   to,
   icon: Icon,
@@ -555,7 +663,7 @@ function Shell({ children }: { children: React.ReactNode }) {
               <NavButton to="/search" icon={Search} active={path === '/search'} onClick={navigate}>Search</NavButton>
               <NavButton to="/presentations" icon={ListMusic} active={path === '/presentations'} onClick={navigate}>Presentations</NavButton>
               <NavButton to="/favorites" icon={Heart} active={path === '/favorites'} onClick={navigate}>Favorites</NavButton>
-              <NavButton to="/add-song" icon={Plus} active={path === '/add-song'} onClick={navigate}>Add Song</NavButton>
+              <NavButton to="/support" icon={HeartHandshake} active={path === '/support'} onClick={navigate}>Support the work</NavButton>
               <NavButton to="/settings" icon={Settings} active={path === '/settings'} onClick={navigate}>Settings</NavButton>
             </nav>
             <div className="account-actions">
@@ -564,10 +672,6 @@ function Shell({ children }: { children: React.ReactNode }) {
                   <WifiOff size={14} /> Offline
                 </span>
               )}
-              <button className="nav-link" onClick={() => navigate('/settings')}>
-                <LogIn size={18} />
-                <span>Sign in</span>
-              </button>
             </div>
           </>
         )}
@@ -990,7 +1094,10 @@ function SearchPage() {
 }
 
 function PresentationsPage() {
+  const location = useLocation();
+  const isProjectionWindow = new URLSearchParams(location.search).get('projection') === '1';
   const [songs, setSongs] = usePresentationSongs();
+  const [projectionSongs, setProjectionSongs] = useState<PresentationSong[]>(readPresentationSongs);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [presenting, setPresenting] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -1004,19 +1111,18 @@ function PresentationsPage() {
   const [presentationScreenZoom, setPresentationScreenZoom] = useState(() => (
     clampNumber(readLocal(PRESENTATION_SCREEN_ZOOM_KEY, 1), 0.75, 4)
   ));
+  const [presentationBackground, setPresentationBackground] = useState(() => (
+    readLocal(PRESENTATION_BACKGROUND_KEY, '#cdeeff')
+  ));
   const [presentationZoomOrigin, setPresentationZoomOrigin] = useState({ x: 50, y: 50 });
   const [isPresentationFullscreen, setIsPresentationFullscreen] = useState(false);
-  const presentationSlideRef = useRef<HTMLElement | null>(null);
-  const projectionLyricsRef = useRef<HTMLDivElement | null>(null);
+  const [pointerMode, setPointerMode] = useState<PresentationPointerMode>('off');
+  const [pointer, setPointer] = useState({ x: 50, y: 50 });
+  const [audienceWindowOpen, setAudienceWindowOpen] = useState(false);
+  const audienceWindowRef = useRef<Window | null>(null);
+  const projectionChannelRef = useRef<BroadcastChannel | null>(null);
   const slideSong = songs[selectedIndex] || null;
-  const presentationTapHandlers = useDoubleTapFullscreen(() => {
-    if (document.fullscreenElement) exitAppFullscreen().catch(() => {});
-    else requestAppFullscreen().catch(() => {});
-  });
-  const projectionLyricColumns = useMemo(
-    () => splitProjectionLyrics(normalizePlainLyrics(slideSong)),
-    [slideSong],
-  );
+  const projectionSlideSong = projectionSongs[selectedIndex] || projectionSongs[0] || null;
 
   useEffect(() => {
     if (selectedIndex > songs.length - 1) setSelectedIndex(Math.max(songs.length - 1, 0));
@@ -1055,13 +1161,86 @@ function PresentationsPage() {
   }, [browseCode]);
 
   useEffect(() => {
-    document.documentElement.dataset.presentation = presenting ? 'on' : 'off';
-    document.documentElement.dataset.projection = presenting ? 'on' : 'off';
+    document.documentElement.dataset.presentation = isProjectionWindow ? 'on' : 'off';
+    document.documentElement.dataset.projection = isProjectionWindow ? 'on' : 'off';
     return () => {
       document.documentElement.dataset.presentation = 'off';
       document.documentElement.dataset.projection = 'off';
     };
-  }, [presenting]);
+  }, [isProjectionWindow]);
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return undefined;
+    const channel = new BroadcastChannel('morija-presentation');
+    projectionChannelRef.current = channel;
+    const sendReady = () => {
+      if (isProjectionWindow) window.opener?.postMessage({ type: 'morija-projection-ready' }, window.location.origin);
+    };
+    const onMessage = (event: MessageEvent<ProjectionState | { type: string }>) => {
+      if (event.data?.type === 'morija-projection-ready' && !isProjectionWindow) {
+        sendProjectionState();
+        return;
+      }
+      if (event.data?.type !== 'presentation-state' || !isProjectionWindow) return;
+      const state = event.data as ProjectionState;
+      setProjectionSongs(state.songs);
+      setSelectedIndex(state.selectedIndex);
+      setPresentationScreenZoom(state.zoom);
+      setPresentationZoomOrigin(state.zoomOrigin);
+      setPointer(state.pointer);
+      setPointerMode(state.pointerMode);
+      setPresentationBackground(state.background);
+    };
+    channel.addEventListener('message', onMessage);
+    window.addEventListener('message', onMessage);
+    sendReady();
+    return () => {
+      channel.close();
+      projectionChannelRef.current = null;
+      window.removeEventListener('message', onMessage);
+    };
+  // The channel is intentionally created once per window.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProjectionWindow]);
+
+  function getProjectionState(): ProjectionState {
+    return {
+      type: 'presentation-state',
+      songs,
+      selectedIndex,
+      zoom: presentationScreenZoom,
+      zoomOrigin: presentationZoomOrigin,
+      pointer,
+      pointerMode,
+      background: presentationBackground,
+    };
+  }
+
+  function sendProjectionState() {
+    const state = getProjectionState();
+    projectionChannelRef.current?.postMessage(state);
+    if (audienceWindowRef.current && !audienceWindowRef.current.closed) {
+      audienceWindowRef.current.postMessage(state, window.location.origin);
+    }
+  }
+
+  useEffect(() => {
+    if (isProjectionWindow || !presenting) return;
+    sendProjectionState();
+  // State changes are the signal that keeps the audience window in lockstep.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProjectionWindow, presenting, songs, selectedIndex, presentationScreenZoom, presentationZoomOrigin, pointer, pointerMode, presentationBackground]);
+
+  useEffect(() => {
+    writeLocal(PRESENTATION_BACKGROUND_KEY, presentationBackground);
+  }, [presentationBackground]);
+
+  useEffect(() => {
+    if (!isProjectionWindow) return undefined;
+    const onStorage = () => setProjectionSongs(readPresentationSongs());
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [isProjectionWindow]);
 
   useEffect(() => {
     writeLocal(PRESENTATION_SCREEN_ZOOM_KEY, presentationScreenZoom);
@@ -1077,7 +1256,7 @@ function PresentationsPage() {
   }, []);
 
   useEffect(() => {
-    if (!presenting) return undefined;
+    if (!presenting || isProjectionWindow) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey) {
         if (event.key === '+' || event.key === '=') {
@@ -1110,42 +1289,14 @@ function PresentationsPage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [presenting, songs.length]);
+  }, [presenting, songs.length, isProjectionWindow]);
 
   useEffect(() => {
-    if (!presenting) return;
-    presentationSlideRef.current?.scrollTo({ top: 0, left: 0 });
-    projectionLyricsRef.current?.scrollTo({ top: 0, left: 0 });
+    if (!presenting && !isProjectionWindow) return;
     setPresentationZoomOrigin({ x: 50, y: 50 });
     setPresentationScreenZoom(1);
-  }, [presenting, slideSong?.id]);
-
-  useEffect(() => {
-    if (!presenting || !projectionLyricsRef.current) return undefined;
-    const lyricsElement = projectionLyricsRef.current;
-    let frameId = 0;
-    const fitLyrics = () => {
-      window.cancelAnimationFrame(frameId);
-      lyricsElement.style.setProperty('--projection-fit-scale', '1');
-      frameId = window.requestAnimationFrame(() => {
-        let scale = 1;
-        const isOverflowing = () => (
-          lyricsElement.scrollHeight > lyricsElement.clientHeight + 2 ||
-          lyricsElement.scrollWidth > lyricsElement.clientWidth + 2
-        );
-        while (isOverflowing() && scale > 0.82) {
-          scale = Math.max(0.82, scale - 0.035);
-          lyricsElement.style.setProperty('--projection-fit-scale', scale.toFixed(2));
-        }
-      });
-    };
-    fitLyrics();
-    window.addEventListener('resize', fitLyrics);
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      window.removeEventListener('resize', fitLyrics);
-    };
-  }, [presenting, slideSong?.id]);
+    setPointerMode('off');
+  }, [presenting, isProjectionWindow, selectedIndex]);
 
   function saveSongs(next: PresentationSong[]) {
     setSongs(next);
@@ -1207,7 +1358,7 @@ function PresentationsPage() {
   const isSearchingSongs = searchQuery.trim().length > 0;
   const visibleBrowseSongs = isSearchingSongs ? searchResults : (browseData?.songs || []);
   const changePresentationScreenZoom = (delta: number, clientX?: number, clientY?: number) => {
-    const slideRect = presentationSlideRef.current?.getBoundingClientRect();
+    const slideRect = document.querySelector<HTMLElement>('.presenter-main-panel .presentation-slide')?.getBoundingClientRect();
     if (slideRect && typeof clientX === 'number' && typeof clientY === 'number') {
       const x = clampNumber(((clientX - slideRect.left) / slideRect.width) * 100, 0, 100);
       const y = clampNumber(((clientY - slideRect.top) / slideRect.height) * 100, 0, 100);
@@ -1223,87 +1374,133 @@ function PresentationsPage() {
     changePresentationScreenZoom(event.deltaY < 0 ? 0.12 : -0.12, event.clientX, event.clientY);
   };
 
+  function handleSlidePointerMove(event: React.PointerEvent<HTMLElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPointer({
+      x: clampNumber(((event.clientX - rect.left) / rect.width) * 100, 0, 100),
+      y: clampNumber(((event.clientY - rect.top) / rect.height) * 100, 0, 100),
+    });
+  }
+
+  function openAudienceWindow() {
+    const projectionUrl = `${window.location.origin}${window.location.pathname}?projection=1`;
+    const existing = audienceWindowRef.current;
+    const audienceWindow = existing && !existing.closed
+      ? existing
+      : window.open(projectionUrl, 'morija-audience', 'popup=yes,width=1440,height=900');
+
+    if (!audienceWindow) {
+      setStatus('Allow pop-ups to open the audience screen.');
+      return;
+    }
+
+    audienceWindowRef.current = audienceWindow;
+    setAudienceWindowOpen(true);
+    setPresenting(true);
+    audienceWindow.focus();
+    window.setTimeout(sendProjectionState, 500);
+  }
+
+  function closeAudienceWindow() {
+    if (audienceWindowRef.current && !audienceWindowRef.current.closed) audienceWindowRef.current.close();
+    audienceWindowRef.current = null;
+    setAudienceWindowOpen(false);
+  }
+
+  function startPresentation(index: number) {
+    setSelectedIndex(index);
+    setPresenting(true);
+    window.setTimeout(() => {
+      openAudienceWindow();
+    }, 0);
+  }
+
+  if (isProjectionWindow && projectionSlideSong) {
+    return (
+      <section className="presentation-projection-window">
+        <PresentationSlideCanvas
+          song={projectionSlideSong}
+          background={presentationBackground}
+          zoom={presentationScreenZoom}
+          zoomOrigin={presentationZoomOrigin}
+          pointer={pointer}
+          pointerMode={pointerMode}
+        />
+      </section>
+    );
+  }
+
   if (presenting && slideSong) {
     return (
-      <section className="presentation-show" onWheel={handlePresentationWheel} {...presentationTapHandlers}>
-        {isPresentationFullscreen && (
-          <button
-            className="presentation-fullscreen-exit"
-            aria-label="Exit fullscreen"
-            title="Exit fullscreen"
-            onClick={() => exitAppFullscreen().catch(() => {})}
-          >
-            <X size={18} />
-          </button>
-        )}
-        <header className="presentation-show-top">
-          <div className="presentation-show-status">
-            <p className="presentation-show-label">
-              <Monitor size={18} strokeWidth={2.6} />
-              <span>Presentation</span>
-            </p>
-            <strong>{selectedIndex + 1} of {songs.length}</strong>
+      <section className="presentation-presenter" onWheel={handlePresentationWheel}>
+        <header className="presentation-presenter-header">
+          <div>
+            <p className="eyebrow"><Presentation size={16} /> Presenter view</p>
+            <h1>{slideSong.title}</h1>
+            <span>{selectedIndex + 1} of {songs.length} · {slideSong.collectionName}</span>
+          </div>
+          <div className="presentation-presenter-actions">
+            <button className={`secondary-action ${audienceWindowOpen ? 'is-live' : ''}`} onClick={openAudienceWindow}>
+              {audienceWindowOpen ? <Radio size={17} /> : <MonitorUp size={17} />}
+              {audienceWindowOpen ? 'Audience live' : 'Open audience'}
+            </button>
+            <button className="ghost-action" onClick={() => { setPresenting(false); closeAudienceWindow(); }}><X size={17} /> Exit</button>
           </div>
         </header>
-        <article ref={presentationSlideRef} className="presentation-slide">
-          <div
-            className="presentation-slide-zoom"
-            style={{
-              '--presentation-screen-zoom': presentationScreenZoom,
-              '--presentation-origin-x': `${presentationZoomOrigin.x}%`,
-              '--presentation-origin-y': `${presentationZoomOrigin.y}%`,
-            } as React.CSSProperties}
-          >
-          <p className="presentation-song-meta">{slideSong.collectionName} / {songNumberLabel(slideSong)}</p>
-          <h1>{slideSong.title}</h1>
-          <div
-            ref={projectionLyricsRef}
-            className={`projection-lyrics columns-${projectionLyricColumns.length}`}
-          >
-            {projectionLyricColumns.map((column, index) => {
-              const columnOffset = projectionLyricColumns
-                .slice(0, index)
-                .reduce((total, currentColumn) => total + currentColumn.length, 0);
 
-              return (
-              <div className="projection-lyric-column" key={`${slideSong.id}-column-${index}`}>
-                {column.map((stanza, stanzaIndex) => {
-                  const partNumber = columnOffset + stanzaIndex + 1;
-                  const isChorus = isProjectionChorus(stanza);
+        <div className="presentation-presenter-grid">
+          <section className="presenter-main-panel">
+            <div className="presenter-panel-label"><span>Now showing</span><span className="live-dot">LIVE</span></div>
+            <PresentationSlideCanvas
+              song={slideSong}
+              background={presentationBackground}
+              zoom={presentationScreenZoom}
+              zoomOrigin={presentationZoomOrigin}
+              pointer={pointer}
+              pointerMode={pointerMode}
+              onPointerMove={handleSlidePointerMove}
+            />
+          </section>
+          <aside className="presenter-side-panel">
+            <div className="presenter-next-card">
+              <div className="presenter-panel-label"><span>Next up</span><span>{selectedIndex < songs.length - 1 ? selectedIndex + 2 : 'End'}</span></div>
+              {songs[selectedIndex + 1] ? (
+                <button className="presenter-next-preview" onClick={() => setSelectedIndex(selectedIndex + 1)}>
+                  <strong>{songs[selectedIndex + 1].title}</strong>
+                  <span>{songs[selectedIndex + 1].collectionName} / {songNumberLabel(songs[selectedIndex + 1])}</span>
+                </button>
+              ) : <p className="presenter-muted">You are on the final slide.</p>}
+            </div>
+            <div className="presenter-toolbox">
+              <div className="presenter-panel-label"><span>Presenter tools</span><MousePointer2 size={16} /></div>
+              <div className="presenter-tool-row">
+                <button className={pointerMode === 'off' ? 'active' : ''} onClick={() => setPointerMode('off')}>Off</button>
+                <button className={pointerMode === 'laser' ? 'active' : ''} onClick={() => setPointerMode('laser')}>Laser</button>
+                <button className={pointerMode === 'spotlight' ? 'active' : ''} onClick={() => setPointerMode('spotlight')}>Spotlight</button>
+                <button className={pointerMode === 'ink' ? 'active' : ''} onClick={() => setPointerMode('ink')}>Mark</button>
+              </div>
+              <label className="presenter-zoom-control">Slide zoom <input type="range" min="0.75" max="1.5" step="0.01" value={presentationScreenZoom} onChange={(event) => setPresentationScreenZoom(Number(event.target.value))} /></label>
+              <label className="presenter-color-control">
+                <span>Background color</span>
+                <input
+                  type="color"
+                  value={presentationBackground}
+                  aria-label="Presentation background color"
+                  onChange={(event) => setPresentationBackground(event.target.value)}
+                />
+              </label>
+            </div>
+          </aside>
+        </div>
 
-                  return (
-                  <div className="projection-stanza-group" key={`${slideSong.id}-stanza-${index}-${stanzaIndex}`}>
-                    <span className={`projection-part-number ${isChorus ? 'projection-part-number-chorus' : ''}`}>
-                      {partNumber}
-                    </span>
-                    <div className={`projection-stanza ${isChorus ? 'projection-stanza-chorus' : ''}`}>
-                      {stanza.map((line, lineIndex) => (
-                        <p key={`${line}-${lineIndex}`}>{line || String.fromCharCode(160)}</p>
-                      ))}
-                    </div>
-                    {stanzaIndex < column.length - 1 && (
-                      <div className="projection-divider" aria-hidden="true">
-                        <span />
-                        <b>✣</b>
-                        <span />
-                      </div>
-                    )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+        <footer className="presenter-footer">
+          <button className="presentation-nav-button" disabled={selectedIndex === 0} onClick={() => setSelectedIndex(selectedIndex - 1)}><ChevronLeft size={18} /> Previous</button>
+          <div className="presenter-slide-strip">
+            {songs.map((song, index) => (
+              <button key={song.entryId} className={index === selectedIndex ? 'active' : ''} onClick={() => setSelectedIndex(index)} title={song.title}><span>{index + 1}</span><small>{song.title}</small></button>
+            ))}
           </div>
-          </div>
-        </article>
-        <footer className="presentation-controls">
-          <button className="presentation-nav-button" disabled={selectedIndex === 0} onClick={() => setSelectedIndex(selectedIndex - 1)}>
-            <ChevronLeft size={18} /> Previous
-          </button>
-          <button className="presentation-nav-button" disabled={selectedIndex >= songs.length - 1} onClick={() => setSelectedIndex(selectedIndex + 1)}>
-            Next <ChevronRight size={18} />
-          </button>
+          <button className="presentation-nav-button" disabled={selectedIndex >= songs.length - 1} onClick={() => setSelectedIndex(selectedIndex + 1)}>Next <ChevronRight size={18} /></button>
         </footer>
       </section>
     );
@@ -1317,7 +1514,8 @@ function PresentationsPage() {
           <h1>Presentations</h1>
         </div>
         <div className="presentation-actions">
-          <button className="primary-action" disabled={!songs.length} onClick={() => setPresenting(true)}><Play size={18} /> Start</button>
+          <button className="primary-action" disabled={!songs.length} onClick={() => startPresentation(0)}><Play size={18} /> From beginning</button>
+          <button className="secondary-action" disabled={!songs.length} onClick={() => startPresentation(selectedIndex)}><MonitorUp size={18} /> From current</button>
           <button className="ghost-action" disabled={!songs.length} onClick={clearPresentation}><Trash2 size={18} /> Clear</button>
         </div>
       </div>
@@ -1888,6 +2086,82 @@ function AddSongPage() {
   );
 }
 
+function SupportPage() {
+  const whatsappMessage = encodeURIComponent(
+    'Hello, I would like to support Morija Cantiques and would like to know how I can contribute.',
+  );
+  const whatsappUrl = `https://wa.me/256758567887?text=${whatsappMessage}`;
+
+  return (
+    <section className="page support-page">
+      <div className="support-intro">
+        <p className="eyebrow">Keep the collection available</p>
+        <h1>Help Keep This Work Available</h1>
+        <p className="support-lead">
+          Morija Cantiques exists to preserve and make these songs accessible in a simple digital form.
+        </p>
+      </div>
+
+      <div className="support-content">
+        <div className="support-copy">
+          <p>
+            The platform requires hosting, storage, maintenance, and other technical resources to remain available and continue serving those who value this collection.
+          </p>
+          <p>
+            If you deem this work important and would like to help, your contribution can help us keep the platform online and maintained.
+          </p>
+          <p>Every contribution is appreciated.</p>
+        </div>
+
+        <section className="support-contact" aria-labelledby="support-contact-title">
+          <div className="support-contact-heading">
+            <HeartHandshake size={22} />
+            <div>
+              <p className="eyebrow">Want to support?</p>
+              <h2 id="support-contact-title">Let’s talk</h2>
+            </div>
+          </div>
+          <p>
+            If you would like to contribute toward the hosting and maintenance of Morija Cantiques, please contact us:
+          </p>
+          <div className="support-details">
+            <a href="https://wa.me/256758567887" target="_blank" rel="noreferrer"><MessageCircle size={18} /> WhatsApp: +256 758 567 887</a>
+            <a href="tel:+256780246004"><Phone size={18} /> Phone: +256 780 246 004</a>
+            <a href="mailto:ritekolo@email.com"><Mail size={18} /> Email: ritekolo@email.com</a>
+          </div>
+          <a className="primary-action support-whatsapp-button" href={whatsappUrl} target="_blank" rel="noreferrer">
+            <MessageCircle size={18} /> Contact Us on WhatsApp
+          </a>
+        </section>
+      </div>
+
+      <section className="developer-section" aria-labelledby="developer-title">
+        <div className="developer-photo-wrap">
+          <img src="/developer-ritah-kolo.png" alt="Ritah Kolo" className="developer-photo" />
+        </div>
+        <div className="developer-copy">
+          <p className="eyebrow">About the Developer</p>
+          <h2 id="developer-title">Built with care by Ritah Kolo</h2>
+          <p>
+            Morija Cantiques was developed by Ritah Kolo with the desire to use technology to make these songs easier to access, preserve, and share.
+          </p>
+          <p>
+            As a developer, I saw an opportunity to transform the traditional collection of songs into a digital platform that can be accessed conveniently from a computer or mobile device.
+          </p>
+          <p>
+            This work is maintained with the hope that it will continue to be useful to everyone who values these songs and the Message of the hour.
+          </p>
+        </div>
+      </section>
+
+      <footer className="support-footer">
+        <p>© 2026 Morija Cantiques</p>
+        <p>Developed by Ritah Kolo</p>
+      </footer>
+    </section>
+  );
+}
+
 function RouteSwitch() {
   const location = useLocation();
   const path = location.pathname;
@@ -1900,6 +2174,7 @@ function RouteSwitch() {
   if (path.startsWith('/hymns/') || path.startsWith('/app/hymns/')) return <ReaderPage />;
   if (path === '/favorites' || path === '/app/favorites') return <FavoritesPage />;
   if (path === '/add-song' || path === '/app/add-song') return <AddSongPage />;
+  if (path === '/support' || path === '/app/support') return <SupportPage />;
   if (path === '/settings' || path === '/app/settings') return <SettingsPage />;
   return <HomePage />;
 }
