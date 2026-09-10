@@ -145,6 +145,11 @@ const PRESENTATION_SCREEN_ZOOM_KEY = 'presentation:screen-zoom:v1';
 const PRESENTATION_BACKGROUND_KEY = 'presentation:background:v1';
 const NAV_COLLAPSED_KEY = 'ui:nav-collapsed:v1';
 const DOUBLE_TAP_DELAY_MS = 320;
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
+function apiUrl(path: string) {
+  return `${API_BASE_URL}/api${path}`;
+}
 
 function readLocal<T>(key: string, fallback: T): T {
   try {
@@ -272,7 +277,7 @@ function normalizePlainLyrics(song?: Song | null) {
 }
 
 async function apiFetchResponse<T>(path: string): Promise<ApiResponse<T>> {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(apiUrl(path), {
     headers: { Accept: 'application/json' },
     credentials: 'include',
   });
@@ -1778,7 +1783,7 @@ function SettingsPage() {
     }
 
     try {
-      const response = await fetch('/api/collections/sincerite/songs', {
+      const response = await fetch(apiUrl('/collections/sincerite/songs'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
@@ -1807,7 +1812,13 @@ function SettingsPage() {
       setSongTitle('');
       setSongLyrics('');
     } catch {
-      // Fallback: Queue offline on network failure
+      if (navigator.onLine) {
+        setSubmitStatus('error');
+        setSubmitMessage('The song could not be saved to the server. Please try again when the service is available.');
+        return;
+      }
+
+      // Queue only when the browser is genuinely offline.
       await queuePendingSong(cleanTitle, cleanLyrics);
       setSubmitStatus('success');
       setSubmitMessage(`"${cleanTitle}" saved offline! It will automatically upload when internet connects.`);
@@ -1970,7 +1981,7 @@ function AddSongPage() {
     }
 
     try {
-      const response = await fetch('/api/collections/sincerite/songs', {
+      const response = await fetch(apiUrl('/collections/sincerite/songs'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
@@ -1997,6 +2008,12 @@ function AddSongPage() {
       setSongTitle('');
       setSongLyrics('');
     } catch {
+      if (navigator.onLine) {
+        setSubmitStatus('error');
+        setSubmitMessage('The song could not be saved to the server. Please try again when the service is available.');
+        return;
+      }
+
       await queuePendingSong(cleanTitle, cleanLyrics);
       setSubmitStatus('success');
       setSubmitMessage(`"${cleanTitle}" saved offline! It will automatically upload when internet connects.`);

@@ -1,5 +1,11 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
+function apiUrl(path: string) {
+  return `${API_BASE_URL}${path}`;
+}
+
 // ─── Types ───────────────────────────────────────────────────────────
 
 export interface OfflineCollection {
@@ -400,7 +406,7 @@ export async function drainPendingSongs(): Promise<{ synced: number; failed: num
 
   for (const song of pending) {
     try {
-      const response = await fetch('/api/collections/sincerite/songs', {
+      const response = await fetch(apiUrl('/api/collections/sincerite/songs'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
@@ -485,7 +491,7 @@ export async function prefetchAllSongs(collections: OfflineCollection[], forceRe
 
     try {
       const pageSize = 100;
-      const firstRes = await fetch(`/api/collections/${slug}/songs?page=1&limit=${pageSize}`, {
+      const firstRes = await fetch(apiUrl(`/api/collections/${slug}/songs?page=1&limit=${pageSize}`), {
         headers: { Accept: 'application/json' },
         credentials: 'include',
       });
@@ -499,7 +505,7 @@ export async function prefetchAllSongs(collections: OfflineCollection[], forceRe
       if (totalPages > 1) {
         for (let page = 2; page <= totalPages; page++) {
           try {
-            const res = await fetch(`/api/collections/${slug}/songs?page=${page}&limit=${pageSize}`, {
+            const res = await fetch(apiUrl(`/api/collections/${slug}/songs?page=${page}&limit=${pageSize}`), {
               headers: { Accept: 'application/json' },
               credentials: 'include',
             });
