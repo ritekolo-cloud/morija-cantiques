@@ -1512,6 +1512,20 @@ h2 {
   gap: clamp(10px, 1.5vh, 18px);
 }
 
+.projection-empty-state {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  color: #fff9d6;
+  font-weight: 800;
+}
+
+.projection-empty-state p {
+  margin: 0;
+}
+
 @media (max-width: 880px) {
   .presentation-presenter-grid {
     grid-template-columns: 1fr;

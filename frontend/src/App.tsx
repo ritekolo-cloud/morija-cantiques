@@ -139,6 +139,23 @@ type ProjectionState = {
   background: string;
 };
 
+type PresentationDisplayDetails = {
+  availLeft?: number;
+  availTop?: number;
+  availWidth?: number;
+  availHeight?: number;
+  left?: number;
+  top?: number;
+  width?: number;
+  height?: number;
+  isPrimary?: boolean;
+  isInternal?: boolean;
+};
+
+type WindowWithScreenDetails = Window & {
+  getScreenDetails?: () => Promise<{ screens: PresentationDisplayDetails[] }>;
+};
+
 const COLLECTIONS_CACHE_KEY = 'collections:v2';
 const PRESENTATION_SONGS_KEY = 'presentation:songs:v1';
 const PRESENTATION_SCREEN_ZOOM_KEY = 'presentation:screen-zoom:v1';
@@ -213,6 +230,52 @@ async function requestAppFullscreen() {
 async function exitAppFullscreen() {
   if (document.fullscreenElement) {
     await document.exitFullscreen?.();
+  }
+}
+
+function audienceWindowFeatures(display?: PresentationDisplayDetails | null) {
+  const currentScreen = window.screen as Screen & { availLeft?: number; availTop?: number };
+  const fallbackLeft = (currentScreen.availLeft ?? 0) + (currentScreen.availWidth || currentScreen.width || 1440);
+  const left = Math.round(display?.availLeft ?? display?.left ?? fallbackLeft);
+  const top = Math.round(display?.availTop ?? display?.top ?? currentScreen.availTop ?? 0);
+  const width = Math.round(Math.min(display?.availWidth ?? display?.width ?? 1440, 1920));
+  const height = Math.round(Math.min(display?.availHeight ?? display?.height ?? 900, 1080));
+
+  return `popup=yes,width=${width},height=${height},left=${left},top=${top}`;
+}
+
+async function getExternalPresentationDisplay() {
+  const screenWindow = window as WindowWithScreenDetails;
+  if (!screenWindow.getScreenDetails) return null;
+
+  try {
+    const details = await screenWindow.getScreenDetails();
+    return (
+      details.screens.find((screen) => screen.isPrimary === false) ||
+      details.screens.find((screen) => screen.isInternal === false) ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function moveAudienceWindowToPresentationDisplay(audienceWindow: Window) {
+  const display = await getExternalPresentationDisplay();
+  if (!display) return false;
+
+  try {
+    audienceWindow.moveTo(
+      Math.round(display.availLeft ?? display.left ?? 0),
+      Math.round(display.availTop ?? display.top ?? 0),
+    );
+    audienceWindow.resizeTo(
+      Math.round(display.availWidth ?? display.width ?? 1440),
+      Math.round(display.availHeight ?? display.height ?? 900),
+    );
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -1142,6 +1205,7 @@ function PresentationsPage() {
   const [audienceWindowOpen, setAudienceWindowOpen] = useState(false);
   const audienceWindowRef = useRef<Window | null>(null);
   const projectionChannelRef = useRef<BroadcastChannel | null>(null);
+  const projectionStateRef = useRef<ProjectionState | null>(null);
   const slideSong = songs[selectedIndex] || null;
   const projectionSlideSong = projectionSongs[selectedIndex] || projectionSongs[0] || null;
 
@@ -1224,11 +1288,11 @@ function PresentationsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProjectionWindow]);
 
-  function getProjectionState(): ProjectionState {
+  function getProjectionState(selectedIndexOverride = selectedIndex): ProjectionState {
     return {
       type: 'presentation-state',
       songs,
-      selectedIndex,
+      selectedIndex: selectedIndexOverride,
       zoom: presentationScreenZoom,
       zoomOrigin: presentationZoomOrigin,
       pointer,
@@ -1237,8 +1301,9 @@ function PresentationsPage() {
     };
   }
 
-  function sendProjectionState() {
-    const state = getProjectionState();
+  projectionStateRef.current = getProjectionState();
+
+  function sendProjectionState(state = projectionStateRef.current ?? getProjectionState()) {
     projectionChannelRef.current?.postMessage(state);
     if (audienceWindowRef.current && !audienceWindowRef.current.closed) {
       audienceWindowRef.current.postMessage(state, window.location.origin);
@@ -1403,12 +1468,28 @@ function PresentationsPage() {
     });
   }
 
-  function openAudienceWindow() {
+  async function sendAudienceToProjector() {
+    const audienceWindow = audienceWindowRef.current;
+    if (!audienceWindow || audienceWindow.closed) {
+      setStatus('Open the audience screen first.');
+      return;
+    }
+
+    const moved = await moveAudienceWindowToPresentationDisplay(audienceWindow);
+    if (moved) {
+      audienceWindow.focus();
+      setStatus('Audience screen moved to the external display.');
+    } else {
+      setStatus('Audience screen is open. Focus that window and use Win + Shift + Right Arrow to move it to the projector.');
+    }
+  }
+
+  function openAudienceWindow(initialState?: ProjectionState) {
     const projectionUrl = `${window.location.origin}${window.location.pathname}?projection=1`;
     const existing = audienceWindowRef.current;
     const audienceWindow = existing && !existing.closed
       ? existing
-      : window.open(projectionUrl, 'morija-audience', 'popup=yes,width=1440,height=900');
+      : window.open(projectionUrl, 'morija-audience', audienceWindowFeatures());
 
     if (!audienceWindow) {
       setStatus('Allow pop-ups to open the audience screen.');
@@ -1419,7 +1500,13 @@ function PresentationsPage() {
     setAudienceWindowOpen(true);
     setPresenting(true);
     audienceWindow.focus();
-    window.setTimeout(sendProjectionState, 500);
+    setStatus('Audience screen opened.');
+    moveAudienceWindowToPresentationDisplay(audienceWindow)
+      .then((moved) => {
+        if (moved) setStatus('Audience screen moved to the external display. Click Fullscreen audience on that window.');
+      })
+      .catch(() => {});
+    window.setTimeout(() => sendProjectionState(initialState), 500);
   }
 
   function closeAudienceWindow() {
@@ -1429,24 +1516,42 @@ function PresentationsPage() {
   }
 
   function startPresentation(index: number) {
+    const initialState = getProjectionState(index);
     setSelectedIndex(index);
     setPresenting(true);
-    window.setTimeout(() => {
-      openAudienceWindow();
-    }, 0);
+    openAudienceWindow(initialState);
   }
 
-  if (isProjectionWindow && projectionSlideSong) {
+  function toggleProjectionFullscreen() {
+    if (document.fullscreenElement) exitAppFullscreen().catch(() => {});
+    else requestAppFullscreen().catch(() => {});
+  }
+
+  if (isProjectionWindow) {
     return (
       <section className="presentation-projection-window">
-        <PresentationSlideCanvas
-          song={projectionSlideSong}
-          background={presentationBackground}
-          zoom={presentationScreenZoom}
-          zoomOrigin={presentationZoomOrigin}
-          pointer={pointer}
-          pointerMode={pointerMode}
-        />
+        <button
+          className="presentation-fullscreen-exit"
+          title={isPresentationFullscreen ? 'Exit fullscreen' : 'Fullscreen audience'}
+          onClick={toggleProjectionFullscreen}
+        >
+          {isPresentationFullscreen ? <X size={18} /> : <Monitor size={18} />}
+        </button>
+        {projectionSlideSong ? (
+          <PresentationSlideCanvas
+            song={projectionSlideSong}
+            background={presentationBackground}
+            zoom={presentationScreenZoom}
+            zoomOrigin={presentationZoomOrigin}
+            pointer={pointer}
+            pointerMode={pointerMode}
+          />
+        ) : (
+          <div className="projection-empty-state">
+            <MonitorUp size={34} />
+            <p>Waiting for presenter</p>
+          </div>
+        )}
       </section>
     );
   }
@@ -1461,9 +1566,13 @@ function PresentationsPage() {
             <span>{selectedIndex + 1} of {songs.length} · {slideSong.collectionName}</span>
           </div>
           <div className="presentation-presenter-actions">
-            <button className={`secondary-action ${audienceWindowOpen ? 'is-live' : ''}`} onClick={openAudienceWindow}>
+            <button className={`secondary-action ${audienceWindowOpen ? 'is-live' : ''}`} onClick={() => openAudienceWindow()}>
               {audienceWindowOpen ? <Radio size={17} /> : <MonitorUp size={17} />}
               {audienceWindowOpen ? 'Audience live' : 'Open audience'}
+            </button>
+            <button className="secondary-action" disabled={!audienceWindowOpen} onClick={sendAudienceToProjector}>
+              <Monitor size={17} />
+              Send to projector
             </button>
             <button className="ghost-action" onClick={() => { setPresenting(false); closeAudienceWindow(); }}><X size={17} /> Exit</button>
           </div>
