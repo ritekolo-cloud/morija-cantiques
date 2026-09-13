@@ -144,13 +144,12 @@ type ProjectionState = {
 
 type ProjectionCommand = {
   type: 'presentation-command';
-  command: 'end-projection' | 'audience-closed' | 'hide-taskbar' | 'show-taskbar';
+  command: 'end-projection' | 'audience-closed';
 };
 
 type ProjectionAudienceEvent = {
   type: 'presentation-audience-event';
-  event: 'fullscreen-change' | 'scroll-progress';
-  fullscreen?: boolean;
+  event: 'scroll-progress';
   scrollProgress?: number;
 };
 
@@ -1259,8 +1258,10 @@ function PresentationsPage() {
   const [pointerMode, setPointerMode] = useState<PresentationPointerMode>('off');
   const [pointer, setPointer] = useState({ x: 50, y: 50 });
   const [audienceWindowOpen, setAudienceWindowOpen] = useState(false);
-  const [audienceFullscreen, setAudienceFullscreen] = useState(false);
+  const [presenterFullscreen, setPresenterFullscreen] = useState(false);
+  const [showSlideOverview, setShowSlideOverview] = useState(false);
   const [projectionEnded, setProjectionEnded] = useState(false);
+  const presenterRef = useRef<HTMLElement | null>(null);
   const audienceWindowRef = useRef<Window | null>(null);
   const projectionChannelRef = useRef<BroadcastChannel | null>(null);
   const projectionStateRef = useRef<ProjectionState | null>(null);
@@ -1342,7 +1343,6 @@ function PresentationsPage() {
         if (message.command === 'audience-closed' && !isProjectionWindow) {
           audienceWindowRef.current = null;
           setAudienceWindowOpen(false);
-          setAudienceFullscreen(false);
           return;
         }
 
@@ -1354,27 +1354,16 @@ function PresentationsPage() {
           } else {
             setPresenting(false);
             setAudienceWindowOpen(false);
-            setAudienceFullscreen(false);
+            setShowSlideOverview(false);
             setStatus('Projection cancelled.');
           }
           return;
-        }
-
-        if (message.command === 'hide-taskbar' && isProjectionWindow) {
-          requestAppFullscreen().catch(() => {});
-          return;
-        }
-
-        if (message.command === 'show-taskbar' && isProjectionWindow) {
-          exitAppFullscreen().catch(() => {});
         }
         return;
       }
 
       if (message.type === 'presentation-audience-event' && !isProjectionWindow) {
-        if (message.event === 'fullscreen-change') {
-          setAudienceFullscreen(Boolean(message.fullscreen));
-        } else if (message.event === 'scroll-progress' && typeof message.scrollProgress === 'number') {
+        if (message.event === 'scroll-progress' && typeof message.scrollProgress === 'number') {
           setPresentationScrollProgress(clampNumber(message.scrollProgress, 0, 1));
         }
         return;
@@ -1479,15 +1468,13 @@ function PresentationsPage() {
   useEffect(() => {
     const onFullscreenChange = () => {
       const fullscreen = Boolean(document.fullscreenElement);
-      if (isProjectionWindow) {
-        sendProjectionAudienceEvent({ event: 'fullscreen-change', fullscreen });
+      if (!isProjectionWindow) {
+        setPresenterFullscreen(fullscreen);
       }
     };
     onFullscreenChange();
     document.addEventListener('fullscreenchange', onFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-  // Fullscreen status is mirrored back only from the audience window.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProjectionWindow]);
 
   useEffect(() => {
@@ -1496,7 +1483,6 @@ function PresentationsPage() {
       if (!audienceWindowRef.current || audienceWindowRef.current.closed) {
         audienceWindowRef.current = null;
         setAudienceWindowOpen(false);
-        setAudienceFullscreen(false);
       }
     };
     const intervalId = window.setInterval(checkAudienceWindow, 800);
@@ -1700,10 +1686,10 @@ function PresentationsPage() {
     setAudienceWindowOpen(true);
     setPresenting(true);
     audienceWindow.focus();
-    setStatus('Audience screen opened. Use Hide taskbar here if the taskbar is visible on the projector.');
+    setStatus('Audience screen opened. Use Hide taskbar to make this presenter screen fullscreen.');
     moveAudienceWindowToPresentationDisplay(audienceWindow)
       .then((moved) => {
-        if (moved) setStatus('Audience screen moved to the external display. Use Hide taskbar here if needed.');
+        if (moved) setStatus('Audience screen moved to the external display.');
       })
       .catch(() => {});
     window.setTimeout(() => sendProjectionState(initialState), 500);
@@ -1712,8 +1698,8 @@ function PresentationsPage() {
   function cancelProjection() {
     sendProjectionCommand('end-projection');
     setAudienceWindowOpen(false);
-    setAudienceFullscreen(false);
     setPresenting(false);
+    setShowSlideOverview(false);
     setPointerMode('off');
     setStatus('Projection cancelled.');
   }
@@ -1725,41 +1711,33 @@ function PresentationsPage() {
     openAudienceWindow(initialState);
   }
 
-  async function toggleAudienceTaskbar() {
-    if (!audienceWindowOpen) {
-      setStatus('Open the audience screen first.');
+  function selectPresentationSlide(index: number) {
+    setSelectedIndex(index);
+    setPresentationScrollProgress(0);
+    setShowSlideOverview(false);
+  }
+
+  async function togglePresenterTaskbar() {
+    if (document.fullscreenElement) {
+      await exitAppFullscreen().catch(() => {});
+      setPresenterFullscreen(false);
+      setStatus('Taskbar shown on this screen.');
       return;
     }
 
-    if (audienceFullscreen) {
-      sendProjectionCommand('show-taskbar');
-      setAudienceFullscreen(false);
-      setStatus('Taskbar shown on the projector.');
-      return;
-    }
-
-    let requestedFullscreen = false;
-    const audienceWindow = audienceWindowRef.current;
-    if (audienceWindow && !audienceWindow.closed) {
-      try {
-        const audienceDocument = audienceWindow.document;
-        const requestFullscreen = audienceDocument.documentElement.requestFullscreen;
-        if (requestFullscreen) {
-          await requestFullscreen.call(audienceDocument.documentElement);
-          requestedFullscreen = true;
-        }
-      } catch {
-        requestedFullscreen = false;
+    try {
+      const fullscreenTarget = presenterRef.current ?? document.documentElement;
+      const requestFullscreen = fullscreenTarget.requestFullscreen;
+      if (!requestFullscreen) {
+        setStatus('Fullscreen is not available in this browser.');
+        return;
       }
+      await requestFullscreen.call(fullscreenTarget);
+      setPresenterFullscreen(true);
+      setStatus('Taskbar hidden on this screen.');
+    } catch {
+      setStatus('Your browser blocked fullscreen. Click Hide taskbar again from this presenter screen.');
     }
-
-    if (!requestedFullscreen) {
-      sendProjectionCommand('hide-taskbar');
-      setStatus('Hide taskbar request sent to the projector.');
-      return;
-    }
-    setAudienceFullscreen(true);
-    setStatus('Taskbar hidden on the projector.');
   }
 
   if (isProjectionWindow) {
@@ -1793,7 +1771,7 @@ function PresentationsPage() {
 
   if (presenting && slideSong) {
     return (
-      <section className="presentation-presenter" onWheel={handlePresentationWheel}>
+      <section ref={presenterRef} className="presentation-presenter" onWheel={handlePresentationWheel}>
         <header className="presentation-presenter-header">
           <div>
             <p className="eyebrow"><Presentation size={16} /> Presenter view</p>
@@ -1801,6 +1779,10 @@ function PresentationsPage() {
             <span>{selectedIndex + 1} of {songs.length} · {slideSong.collectionName}</span>
           </div>
           <div className="presentation-presenter-actions">
+            <button className={`secondary-action ${showSlideOverview ? 'is-live' : ''}`} onClick={() => setShowSlideOverview((visible) => !visible)}>
+              <ListMusic size={17} />
+              {showSlideOverview ? 'Hide slides' : 'All slides'}
+            </button>
             <button className={`secondary-action ${audienceWindowOpen ? 'is-live' : ''}`} onClick={() => openAudienceWindow()}>
               {audienceWindowOpen ? <Radio size={17} /> : <MonitorUp size={17} />}
               {audienceWindowOpen ? 'Audience live' : 'Open audience'}
@@ -1809,13 +1791,40 @@ function PresentationsPage() {
               <Monitor size={17} />
               Send to projector
             </button>
-            <button className="secondary-action" disabled={!audienceWindowOpen} onClick={toggleAudienceTaskbar}>
-              {audienceFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-              {audienceFullscreen ? 'Show taskbar' : 'Hide taskbar'}
+            <button className="secondary-action" onClick={togglePresenterTaskbar}>
+              {presenterFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+              {presenterFullscreen ? 'Show taskbar' : 'Hide taskbar'}
             </button>
             <button className="ghost-action" onClick={cancelProjection}><X size={17} /> Cancel projection</button>
           </div>
         </header>
+
+        {showSlideOverview && (
+          <div className="presenter-slide-overview-backdrop" onClick={() => setShowSlideOverview(false)}>
+            <section className="presenter-slide-overview" aria-label="All presentation slides" onClick={(event) => event.stopPropagation()}>
+              <div className="presenter-slide-overview-header">
+                <div>
+                  <p className="eyebrow">All slides</p>
+                  <h2>{songs.length} songs in this presentation</h2>
+                </div>
+                <button className="icon-button" title="Close all slides" onClick={() => setShowSlideOverview(false)}><X size={17} /></button>
+              </div>
+              <div className="presenter-slide-overview-grid">
+                {songs.map((song, index) => (
+                  <button
+                    key={song.entryId}
+                    className={`presenter-slide-overview-item ${index === selectedIndex ? 'active' : ''}`}
+                    onClick={() => selectPresentationSlide(index)}
+                  >
+                    <span>{index + 1}</span>
+                    <strong>{song.title}</strong>
+                    <small>{song.collectionName} / {songNumberLabel(song)}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
 
         <div className="presentation-presenter-grid">
           <section className="presenter-main-panel">
@@ -1836,7 +1845,7 @@ function PresentationsPage() {
             <div className="presenter-next-card">
               <div className="presenter-panel-label"><span>Next up</span><span>{selectedIndex < songs.length - 1 ? selectedIndex + 2 : 'End'}</span></div>
               {songs[selectedIndex + 1] ? (
-                <button className="presenter-next-preview" onClick={() => setSelectedIndex(selectedIndex + 1)}>
+                <button className="presenter-next-preview" onClick={() => selectPresentationSlide(selectedIndex + 1)}>
                   <strong>{songs[selectedIndex + 1].title}</strong>
                   <span>{songs[selectedIndex + 1].collectionName} / {songNumberLabel(songs[selectedIndex + 1])}</span>
                 </button>
@@ -1869,13 +1878,13 @@ function PresentationsPage() {
         </div>
 
         <footer className="presenter-footer">
-          <button className="presentation-nav-button" disabled={selectedIndex === 0} onClick={() => setSelectedIndex(selectedIndex - 1)}><ChevronLeft size={18} /> Previous</button>
+          <button className="presentation-nav-button" disabled={selectedIndex === 0} onClick={() => selectPresentationSlide(selectedIndex - 1)}><ChevronLeft size={18} /> Previous</button>
           <div className="presenter-slide-strip">
             {songs.map((song, index) => (
-              <button key={song.entryId} className={index === selectedIndex ? 'active' : ''} onClick={() => setSelectedIndex(index)} title={song.title}><span>{index + 1}</span><small>{song.title}</small></button>
+              <button key={song.entryId} className={index === selectedIndex ? 'active' : ''} onClick={() => selectPresentationSlide(index)} title={song.title}><span>{index + 1}</span><small>{song.title}</small></button>
             ))}
           </div>
-          <button className="presentation-nav-button" disabled={selectedIndex >= songs.length - 1} onClick={() => setSelectedIndex(selectedIndex + 1)}>Next <ChevronRight size={18} /></button>
+          <button className="presentation-nav-button" disabled={selectedIndex >= songs.length - 1} onClick={() => selectPresentationSlide(selectedIndex + 1)}>Next <ChevronRight size={18} /></button>
         </footer>
       </section>
     );
