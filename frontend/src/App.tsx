@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -134,6 +134,7 @@ type ProjectionState = {
   selectedIndex: number;
   zoom: number;
   zoomOrigin: { x: number; y: number };
+  scrollProgress: number;
   pointer: { x: number; y: number };
   pointerMode: PresentationPointerMode;
   background: string;
@@ -205,6 +206,16 @@ function randomId() {
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function slideScrollProgress(element: HTMLElement) {
+  const maxScroll = Math.max(element.scrollHeight - element.clientHeight, 0);
+  return maxScroll > 1 ? clampNumber(element.scrollTop / maxScroll, 0, 1) : 0;
+}
+
+function scrollSlideToProgress(element: HTMLElement, progress: number) {
+  const maxScroll = Math.max(element.scrollHeight - element.clientHeight, 0);
+  element.scrollTop = maxScroll * clampNumber(progress, 0, 1);
 }
 
 function presentationInkColor(background: string) {
@@ -616,23 +627,48 @@ function PresentationSlideCanvas({
   background = '#cdeeff',
   zoom = 1,
   zoomOrigin = { x: 50, y: 50 },
+  scrollProgress = 0,
   pointer,
   pointerMode = 'off',
+  onScrollProgressChange,
   onPointerMove,
 }: {
   song: PresentationSong;
   background?: string;
   zoom?: number;
   zoomOrigin?: { x: number; y: number };
+  scrollProgress?: number;
   pointer?: { x: number; y: number };
   pointerMode?: PresentationPointerMode;
+  onScrollProgressChange?: (progress: number) => void;
   onPointerMove?: (event: React.PointerEvent<HTMLElement>) => void;
 }) {
+  const slideRef = useRef<HTMLElement | null>(null);
+  const applyingScrollRef = useRef(false);
   const projectionLyricColumns = useMemo(() => splitProjectionLyrics(normalizePlainLyrics(song)), [song]);
+
+  useLayoutEffect(() => {
+    const slide = slideRef.current;
+    if (!slide) return undefined;
+    let frameId = 0;
+    applyingScrollRef.current = true;
+    scrollSlideToProgress(slide, scrollProgress);
+    frameId = window.requestAnimationFrame(() => {
+      applyingScrollRef.current = false;
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [scrollProgress, song.entryId, zoom]);
+
+  function handleScroll(event: React.UIEvent<HTMLElement>) {
+    if (applyingScrollRef.current) return;
+    onScrollProgressChange?.(slideScrollProgress(event.currentTarget));
+  }
 
   return (
     <article
+      ref={slideRef}
       className="presentation-slide"
+      onScroll={handleScroll}
       onPointerMove={onPointerMove}
       style={{ background, '--presentation-ink': presentationInkColor(background) } as React.CSSProperties}
     >
@@ -1199,6 +1235,7 @@ function PresentationsPage() {
     readLocal(PRESENTATION_BACKGROUND_KEY, '#cdeeff')
   ));
   const [presentationZoomOrigin, setPresentationZoomOrigin] = useState({ x: 50, y: 50 });
+  const [presentationScrollProgress, setPresentationScrollProgress] = useState(0);
   const [isPresentationFullscreen, setIsPresentationFullscreen] = useState(false);
   const [pointerMode, setPointerMode] = useState<PresentationPointerMode>('off');
   const [pointer, setPointer] = useState({ x: 50, y: 50 });
@@ -1272,6 +1309,7 @@ function PresentationsPage() {
       setSelectedIndex(state.selectedIndex);
       setPresentationScreenZoom(state.zoom);
       setPresentationZoomOrigin(state.zoomOrigin);
+      setPresentationScrollProgress(clampNumber(state.scrollProgress ?? 0, 0, 1));
       setPointer(state.pointer);
       setPointerMode(state.pointerMode);
       setPresentationBackground(state.background);
@@ -1295,6 +1333,7 @@ function PresentationsPage() {
       selectedIndex: selectedIndexOverride,
       zoom: presentationScreenZoom,
       zoomOrigin: presentationZoomOrigin,
+      scrollProgress: presentationScrollProgress,
       pointer,
       pointerMode,
       background: presentationBackground,
@@ -1315,7 +1354,7 @@ function PresentationsPage() {
     sendProjectionState();
   // State changes are the signal that keeps the audience window in lockstep.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isProjectionWindow, presenting, songs, selectedIndex, presentationScreenZoom, presentationZoomOrigin, pointer, pointerMode, presentationBackground]);
+  }, [isProjectionWindow, presenting, songs, selectedIndex, presentationScreenZoom, presentationZoomOrigin, presentationScrollProgress, pointer, pointerMode, presentationBackground]);
 
   useEffect(() => {
     writeLocal(PRESENTATION_BACKGROUND_KEY, presentationBackground);
@@ -1365,22 +1404,35 @@ function PresentationsPage() {
         event.preventDefault();
         if (document.fullscreenElement) exitAppFullscreen().catch(() => {});
         else setPresenting(false);
-      } else if (['ArrowRight', 'PageDown', ' '].includes(event.key)) {
+      } else if (event.key === 'ArrowRight') {
         event.preventDefault();
         setSelectedIndex((index) => Math.min(index + 1, songs.length - 1));
-      } else if (['ArrowLeft', 'PageUp'].includes(event.key)) {
+      } else if (event.key === 'ArrowLeft') {
         event.preventDefault();
         setSelectedIndex((index) => Math.max(index - 1, 0));
+      } else if (['PageDown', ' '].includes(event.key)) {
+        event.preventDefault();
+        if (!scrollPresenterSlide(1)) setSelectedIndex((index) => Math.min(index + 1, songs.length - 1));
+      } else if (event.key === 'PageUp') {
+        event.preventDefault();
+        if (!scrollPresenterSlide(-1)) setSelectedIndex((index) => Math.max(index - 1, 0));
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        scrollPresenterSlide(1);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        scrollPresenterSlide(-1);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [presenting, songs.length, isProjectionWindow]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!presenting && !isProjectionWindow) return;
     setPresentationZoomOrigin({ x: 50, y: 50 });
     setPresentationScreenZoom(1);
+    setPresentationScrollProgress(0);
     setPointerMode('off');
   }, [presenting, isProjectionWindow, selectedIndex]);
 
@@ -1453,6 +1505,17 @@ function PresentationsPage() {
 
     setPresentationScreenZoom((zoom) => clampNumber(Number((zoom + delta).toFixed(2)), 0.75, 4));
   };
+
+  function scrollPresenterSlide(direction: -1 | 1) {
+    const slide = document.querySelector<HTMLElement>('.presenter-main-panel .presentation-slide');
+    if (!slide) return false;
+    const maxScroll = Math.max(slide.scrollHeight - slide.clientHeight, 0);
+    if (maxScroll <= 1) return false;
+    const atEdge = direction > 0 ? slide.scrollTop >= maxScroll - 2 : slide.scrollTop <= 2;
+    if (atEdge) return false;
+    slide.scrollBy({ top: direction * Math.max(slide.clientHeight * 0.78, 240), behavior: 'smooth' });
+    return true;
+  }
 
   const handlePresentationWheel = (event: React.WheelEvent<HTMLElement>) => {
     if (!event.ctrlKey && !event.metaKey) return;
@@ -1543,6 +1606,8 @@ function PresentationsPage() {
             background={presentationBackground}
             zoom={presentationScreenZoom}
             zoomOrigin={presentationZoomOrigin}
+            scrollProgress={presentationScrollProgress}
+            onScrollProgressChange={setPresentationScrollProgress}
             pointer={pointer}
             pointerMode={pointerMode}
           />
@@ -1586,6 +1651,8 @@ function PresentationsPage() {
               background={presentationBackground}
               zoom={presentationScreenZoom}
               zoomOrigin={presentationZoomOrigin}
+              scrollProgress={presentationScrollProgress}
+              onScrollProgressChange={setPresentationScrollProgress}
               pointer={pointer}
               pointerMode={pointerMode}
               onPointerMove={handleSlidePointerMove}
@@ -1608,6 +1675,10 @@ function PresentationsPage() {
                 <button className={pointerMode === 'laser' ? 'active' : ''} onClick={() => setPointerMode('laser')}>Laser</button>
                 <button className={pointerMode === 'spotlight' ? 'active' : ''} onClick={() => setPointerMode('spotlight')}>Spotlight</button>
                 <button className={pointerMode === 'ink' ? 'active' : ''} onClick={() => setPointerMode('ink')}>Mark</button>
+              </div>
+              <div className="presenter-tool-row">
+                <button title="Scroll lyrics up" aria-label="Scroll lyrics up" onClick={() => scrollPresenterSlide(-1)}><ChevronUp size={16} /></button>
+                <button title="Scroll lyrics down" aria-label="Scroll lyrics down" onClick={() => scrollPresenterSlide(1)}><ChevronDown size={16} /></button>
               </div>
               <label className="presenter-zoom-control">Slide zoom <input type="range" min="0.75" max="1.5" step="0.01" value={presentationScreenZoom} onChange={(event) => setPresentationScreenZoom(Number(event.target.value))} /></label>
               <label className="presenter-color-control">
