@@ -14,7 +14,9 @@ import {
   Home,
   Library,
   ListMusic,
+  Maximize2,
   Minus,
+  Minimize2,
   Monitor,
   MonitorUp,
   Mail,
@@ -140,6 +142,24 @@ type ProjectionState = {
   background: string;
 };
 
+type ProjectionCommand = {
+  type: 'presentation-command';
+  command: 'end-projection' | 'audience-closed' | 'hide-taskbar' | 'show-taskbar';
+};
+
+type ProjectionAudienceEvent = {
+  type: 'presentation-audience-event';
+  event: 'fullscreen-change' | 'scroll-progress';
+  fullscreen?: boolean;
+  scrollProgress?: number;
+};
+
+type ProjectionReadyMessage = {
+  type: 'morija-projection-ready';
+};
+
+type ProjectionMessage = ProjectionState | ProjectionCommand | ProjectionAudienceEvent | ProjectionReadyMessage;
+
 type PresentationDisplayDetails = {
   availLeft?: number;
   availTop?: number;
@@ -247,10 +267,10 @@ async function exitAppFullscreen() {
 function audienceWindowFeatures(display?: PresentationDisplayDetails | null) {
   const currentScreen = window.screen as Screen & { availLeft?: number; availTop?: number };
   const fallbackLeft = (currentScreen.availLeft ?? 0) + (currentScreen.availWidth || currentScreen.width || 1440);
-  const left = Math.round(display?.availLeft ?? display?.left ?? fallbackLeft);
-  const top = Math.round(display?.availTop ?? display?.top ?? currentScreen.availTop ?? 0);
-  const width = Math.round(Math.min(display?.availWidth ?? display?.width ?? 1440, 1920));
-  const height = Math.round(Math.min(display?.availHeight ?? display?.height ?? 900, 1080));
+  const left = Math.round(display?.left ?? display?.availLeft ?? fallbackLeft);
+  const top = Math.round(display?.top ?? display?.availTop ?? currentScreen.availTop ?? 0);
+  const width = Math.round(display?.width ?? display?.availWidth ?? currentScreen.width ?? 1440);
+  const height = Math.round(display?.height ?? display?.availHeight ?? currentScreen.height ?? 900);
 
   return `popup=yes,width=${width},height=${height},left=${left},top=${top}`;
 }
@@ -277,12 +297,12 @@ async function moveAudienceWindowToPresentationDisplay(audienceWindow: Window) {
 
   try {
     audienceWindow.moveTo(
-      Math.round(display.availLeft ?? display.left ?? 0),
-      Math.round(display.availTop ?? display.top ?? 0),
+      Math.round(display.left ?? display.availLeft ?? 0),
+      Math.round(display.top ?? display.availTop ?? 0),
     );
     audienceWindow.resizeTo(
-      Math.round(display.availWidth ?? display.width ?? 1440),
-      Math.round(display.availHeight ?? display.height ?? 900),
+      Math.round(display.width ?? display.availWidth ?? 1440),
+      Math.round(display.height ?? display.availHeight ?? 900),
     );
     return true;
   } catch {
@@ -1236,10 +1256,11 @@ function PresentationsPage() {
   ));
   const [presentationZoomOrigin, setPresentationZoomOrigin] = useState({ x: 50, y: 50 });
   const [presentationScrollProgress, setPresentationScrollProgress] = useState(0);
-  const [isPresentationFullscreen, setIsPresentationFullscreen] = useState(false);
   const [pointerMode, setPointerMode] = useState<PresentationPointerMode>('off');
   const [pointer, setPointer] = useState({ x: 50, y: 50 });
   const [audienceWindowOpen, setAudienceWindowOpen] = useState(false);
+  const [audienceFullscreen, setAudienceFullscreen] = useState(false);
+  const [projectionEnded, setProjectionEnded] = useState(false);
   const audienceWindowRef = useRef<Window | null>(null);
   const projectionChannelRef = useRef<BroadcastChannel | null>(null);
   const projectionStateRef = useRef<ProjectionState | null>(null);
@@ -1292,19 +1313,76 @@ function PresentationsPage() {
   }, [isProjectionWindow]);
 
   useEffect(() => {
-    if (typeof BroadcastChannel === 'undefined') return undefined;
-    const channel = new BroadcastChannel('morija-presentation');
+    document.documentElement.dataset.presenter = presenting && !isProjectionWindow ? 'on' : 'off';
+    return () => {
+      document.documentElement.dataset.presenter = 'off';
+    };
+  }, [presenting, isProjectionWindow]);
+
+  useEffect(() => {
+    const channel = typeof BroadcastChannel === 'undefined'
+      ? null
+      : new BroadcastChannel('morija-presentation');
     projectionChannelRef.current = channel;
     const sendReady = () => {
       if (isProjectionWindow) window.opener?.postMessage({ type: 'morija-projection-ready' }, window.location.origin);
     };
-    const onMessage = (event: MessageEvent<ProjectionState | { type: string }>) => {
-      if (event.data?.type === 'morija-projection-ready' && !isProjectionWindow) {
+    const onMessage = (event: MessageEvent<ProjectionMessage>) => {
+      if (event.origin && event.origin !== window.location.origin) return;
+      const message = event.data;
+      if (!message || typeof message !== 'object') return;
+
+      if (message.type === 'morija-projection-ready' && !isProjectionWindow) {
+        setAudienceWindowOpen(true);
         sendProjectionState();
         return;
       }
-      if (event.data?.type !== 'presentation-state' || !isProjectionWindow) return;
-      const state = event.data as ProjectionState;
+
+      if (message.type === 'presentation-command') {
+        if (message.command === 'audience-closed' && !isProjectionWindow) {
+          audienceWindowRef.current = null;
+          setAudienceWindowOpen(false);
+          setAudienceFullscreen(false);
+          return;
+        }
+
+        if (message.command === 'end-projection') {
+          if (isProjectionWindow) {
+            setProjectionEnded(true);
+            setPointerMode('off');
+            exitAppFullscreen().catch(() => {});
+          } else {
+            setPresenting(false);
+            setAudienceWindowOpen(false);
+            setAudienceFullscreen(false);
+            setStatus('Projection cancelled.');
+          }
+          return;
+        }
+
+        if (message.command === 'hide-taskbar' && isProjectionWindow) {
+          requestAppFullscreen().catch(() => {});
+          return;
+        }
+
+        if (message.command === 'show-taskbar' && isProjectionWindow) {
+          exitAppFullscreen().catch(() => {});
+        }
+        return;
+      }
+
+      if (message.type === 'presentation-audience-event' && !isProjectionWindow) {
+        if (message.event === 'fullscreen-change') {
+          setAudienceFullscreen(Boolean(message.fullscreen));
+        } else if (message.event === 'scroll-progress' && typeof message.scrollProgress === 'number') {
+          setPresentationScrollProgress(clampNumber(message.scrollProgress, 0, 1));
+        }
+        return;
+      }
+
+      if (message.type !== 'presentation-state' || !isProjectionWindow) return;
+      const state = message;
+      setProjectionEnded(false);
       setProjectionSongs(state.songs);
       setSelectedIndex(state.selectedIndex);
       setPresentationScreenZoom(state.zoom);
@@ -1314,11 +1392,11 @@ function PresentationsPage() {
       setPointerMode(state.pointerMode);
       setPresentationBackground(state.background);
     };
-    channel.addEventListener('message', onMessage);
+    channel?.addEventListener('message', onMessage);
     window.addEventListener('message', onMessage);
     sendReady();
     return () => {
-      channel.close();
+      channel?.close();
       projectionChannelRef.current = null;
       window.removeEventListener('message', onMessage);
     };
@@ -1349,6 +1427,22 @@ function PresentationsPage() {
     }
   }
 
+  function sendProjectionCommand(command: ProjectionCommand['command']) {
+    const message: ProjectionCommand = { type: 'presentation-command', command };
+    projectionChannelRef.current?.postMessage(message);
+    if (isProjectionWindow) {
+      window.opener?.postMessage(message, window.location.origin);
+    } else if (audienceWindowRef.current && !audienceWindowRef.current.closed) {
+      audienceWindowRef.current.postMessage(message, window.location.origin);
+    }
+  }
+
+  function sendProjectionAudienceEvent(message: Omit<ProjectionAudienceEvent, 'type'>) {
+    const payload: ProjectionAudienceEvent = { type: 'presentation-audience-event', ...message };
+    projectionChannelRef.current?.postMessage(payload);
+    window.opener?.postMessage(payload, window.location.origin);
+  }
+
   useEffect(() => {
     if (isProjectionWindow || !presenting) return;
     sendProjectionState();
@@ -1368,17 +1462,46 @@ function PresentationsPage() {
   }, [isProjectionWindow]);
 
   useEffect(() => {
+    if (!isProjectionWindow) return undefined;
+    const notifyClosed = () => {
+      const message: ProjectionCommand = { type: 'presentation-command', command: 'audience-closed' };
+      projectionChannelRef.current?.postMessage(message);
+      window.opener?.postMessage(message, window.location.origin);
+    };
+    window.addEventListener('pagehide', notifyClosed);
+    return () => window.removeEventListener('pagehide', notifyClosed);
+  }, [isProjectionWindow]);
+
+  useEffect(() => {
     writeLocal(PRESENTATION_SCREEN_ZOOM_KEY, presentationScreenZoom);
   }, [presentationScreenZoom]);
 
   useEffect(() => {
     const onFullscreenChange = () => {
-      setIsPresentationFullscreen(Boolean(document.fullscreenElement));
+      const fullscreen = Boolean(document.fullscreenElement);
+      if (isProjectionWindow) {
+        sendProjectionAudienceEvent({ event: 'fullscreen-change', fullscreen });
+      }
     };
     onFullscreenChange();
     document.addEventListener('fullscreenchange', onFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-  }, []);
+  // Fullscreen status is mirrored back only from the audience window.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProjectionWindow]);
+
+  useEffect(() => {
+    if (isProjectionWindow || !audienceWindowOpen) return undefined;
+    const checkAudienceWindow = () => {
+      if (!audienceWindowRef.current || audienceWindowRef.current.closed) {
+        audienceWindowRef.current = null;
+        setAudienceWindowOpen(false);
+        setAudienceFullscreen(false);
+      }
+    };
+    const intervalId = window.setInterval(checkAudienceWindow, 800);
+    return () => window.clearInterval(intervalId);
+  }, [audienceWindowOpen, isProjectionWindow]);
 
   useEffect(() => {
     if (!presenting || isProjectionWindow) return undefined;
@@ -1403,7 +1526,7 @@ function PresentationsPage() {
       if (event.key === 'Escape') {
         event.preventDefault();
         if (document.fullscreenElement) exitAppFullscreen().catch(() => {});
-        else setPresenting(false);
+        else cancelProjection();
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
         setSelectedIndex((index) => Math.min(index + 1, songs.length - 1));
@@ -1518,10 +1641,22 @@ function PresentationsPage() {
   }
 
   const handlePresentationWheel = (event: React.WheelEvent<HTMLElement>) => {
-    if (!event.ctrlKey && !event.metaKey) return;
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      changePresentationScreenZoom(event.deltaY < 0 ? 0.12 : -0.12, event.clientX, event.clientY);
+      return;
+    }
+
+    if (isInteractiveTarget(event.target)) return;
+    const direction = event.deltaY > 0 ? 1 : -1;
     event.preventDefault();
-    changePresentationScreenZoom(event.deltaY < 0 ? 0.12 : -0.12, event.clientX, event.clientY);
+    scrollPresenterSlide(direction);
   };
+
+  function handleAudienceScrollProgress(progress: number) {
+    setPresentationScrollProgress(progress);
+    sendProjectionAudienceEvent({ event: 'scroll-progress', scrollProgress: progress });
+  }
 
   function handleSlidePointerMove(event: React.PointerEvent<HTMLElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1556,6 +1691,8 @@ function PresentationsPage() {
 
     if (!audienceWindow) {
       setStatus('Allow pop-ups to open the audience screen.');
+      setPresenting(false);
+      setAudienceWindowOpen(false);
       return;
     }
 
@@ -1563,19 +1700,22 @@ function PresentationsPage() {
     setAudienceWindowOpen(true);
     setPresenting(true);
     audienceWindow.focus();
-    setStatus('Audience screen opened.');
+    setStatus('Audience screen opened. Use Hide taskbar here if the taskbar is visible on the projector.');
     moveAudienceWindowToPresentationDisplay(audienceWindow)
       .then((moved) => {
-        if (moved) setStatus('Audience screen moved to the external display. Click Fullscreen audience on that window.');
+        if (moved) setStatus('Audience screen moved to the external display. Use Hide taskbar here if needed.');
       })
       .catch(() => {});
     window.setTimeout(() => sendProjectionState(initialState), 500);
   }
 
-  function closeAudienceWindow() {
-    if (audienceWindowRef.current && !audienceWindowRef.current.closed) audienceWindowRef.current.close();
-    audienceWindowRef.current = null;
+  function cancelProjection() {
+    sendProjectionCommand('end-projection');
     setAudienceWindowOpen(false);
+    setAudienceFullscreen(false);
+    setPresenting(false);
+    setPointerMode('off');
+    setStatus('Projection cancelled.');
   }
 
   function startPresentation(index: number) {
@@ -1585,29 +1725,59 @@ function PresentationsPage() {
     openAudienceWindow(initialState);
   }
 
-  function toggleProjectionFullscreen() {
-    if (document.fullscreenElement) exitAppFullscreen().catch(() => {});
-    else requestAppFullscreen().catch(() => {});
+  async function toggleAudienceTaskbar() {
+    if (!audienceWindowOpen) {
+      setStatus('Open the audience screen first.');
+      return;
+    }
+
+    if (audienceFullscreen) {
+      sendProjectionCommand('show-taskbar');
+      setAudienceFullscreen(false);
+      setStatus('Taskbar shown on the projector.');
+      return;
+    }
+
+    let requestedFullscreen = false;
+    const audienceWindow = audienceWindowRef.current;
+    if (audienceWindow && !audienceWindow.closed) {
+      try {
+        const audienceDocument = audienceWindow.document;
+        const requestFullscreen = audienceDocument.documentElement.requestFullscreen;
+        if (requestFullscreen) {
+          await requestFullscreen.call(audienceDocument.documentElement);
+          requestedFullscreen = true;
+        }
+      } catch {
+        requestedFullscreen = false;
+      }
+    }
+
+    if (!requestedFullscreen) {
+      sendProjectionCommand('hide-taskbar');
+      setStatus('Hide taskbar request sent to the projector.');
+      return;
+    }
+    setAudienceFullscreen(true);
+    setStatus('Taskbar hidden on the projector.');
   }
 
   if (isProjectionWindow) {
     return (
       <section className="presentation-projection-window">
-        <button
-          className="presentation-fullscreen-exit"
-          title={isPresentationFullscreen ? 'Exit fullscreen' : 'Fullscreen audience'}
-          onClick={toggleProjectionFullscreen}
-        >
-          {isPresentationFullscreen ? <X size={18} /> : <Monitor size={18} />}
-        </button>
-        {projectionSlideSong ? (
+        {projectionEnded ? (
+          <div className="projection-ended-state">
+            <MonitorUp size={34} />
+            <p>Projection cancelled</p>
+          </div>
+        ) : projectionSlideSong ? (
           <PresentationSlideCanvas
             song={projectionSlideSong}
             background={presentationBackground}
             zoom={presentationScreenZoom}
             zoomOrigin={presentationZoomOrigin}
             scrollProgress={presentationScrollProgress}
-            onScrollProgressChange={setPresentationScrollProgress}
+            onScrollProgressChange={handleAudienceScrollProgress}
             pointer={pointer}
             pointerMode={pointerMode}
           />
@@ -1639,7 +1809,11 @@ function PresentationsPage() {
               <Monitor size={17} />
               Send to projector
             </button>
-            <button className="ghost-action" onClick={() => { setPresenting(false); closeAudienceWindow(); }}><X size={17} /> Exit</button>
+            <button className="secondary-action" disabled={!audienceWindowOpen} onClick={toggleAudienceTaskbar}>
+              {audienceFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+              {audienceFullscreen ? 'Show taskbar' : 'Hide taskbar'}
+            </button>
+            <button className="ghost-action" onClick={cancelProjection}><X size={17} /> Cancel projection</button>
           </div>
         </header>
 
