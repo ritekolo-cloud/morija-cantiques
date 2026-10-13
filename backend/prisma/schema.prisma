@@ -75,6 +75,10 @@ model User {
   favorites    Favorite[]
   recentHymns  RecentHymn[]
   playlists    Playlist[]
+  ownedPresentations Presentation[] @relation("PresentationOwner")
+  presentationVersions PresentationVersion[] @relation("PresentationVersionAuthor")
+  presentationShares PresentationShare[] @relation("PresentationShareRecipient")
+  ownedPresentationAssets PresentationAsset[] @relation("PresentationAssetOwner")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
@@ -149,4 +153,71 @@ model PlaylistHymn {
   @@unique([playlistId, hymnId])
   @@index([hymnId])
   @@map("playlist_hymns")
+}
+enum PresentationSharePermission {
+  VIEW
+  EDIT
+}
+
+model Presentation {
+  id        String   @id @default(uuid())
+  ownerId   Int      @map("owner_id")
+  owner     User     @relation("PresentationOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  title     String   @db.VarChar(160)
+  document  Json
+  revision  Int      @default(1)
+  versions  PresentationVersion[]
+  shares    PresentationShare[]
+  assets    PresentationAsset[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ownerId, updatedAt])
+  @@map("presentations")
+}
+
+model PresentationVersion {
+  id             String       @id @default(uuid())
+  presentationId String       @map("presentation_id")
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  revision       Int
+  authorId       Int          @map("author_id")
+  author         User         @relation("PresentationVersionAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  document       Json
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@unique([presentationId, revision])
+  @@index([presentationId, createdAt])
+  @@map("presentation_versions")
+}
+
+model PresentationShare {
+  id             String                     @id @default(uuid())
+  presentationId String                     @map("presentation_id")
+  presentation   Presentation               @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  recipientId    Int                        @map("recipient_id")
+  recipient      User                       @relation("PresentationShareRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  permission     PresentationSharePermission
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+
+  @@unique([presentationId, recipientId])
+  @@index([recipientId])
+  @@map("presentation_shares")
+}
+model PresentationAsset {
+  id             String       @id @default(uuid())
+  presentationId String       @map("presentation_id")
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  ownerId        Int          @map("owner_id")
+  owner          User         @relation("PresentationAssetOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  storageKey     String       @unique @map("storage_key")
+  name           String       @db.VarChar(255)
+  mimeType       String       @map("mime_type") @db.VarChar(120)
+  size           Int
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([presentationId])
+  @@index([ownerId])
+  @@map("presentation_assets")
 }

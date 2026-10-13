@@ -24,15 +24,25 @@ const envSchema = z.object({
   BCRYPT_ROUNDS: z.string().default('12'),
   ADMIN_NAME: z.string().default('Administrator'),
   ADMIN_EMAIL: z.string().default('admin@morijacantiques.com'),
-  ADMIN_PASSWORD: z.string().default('Admin@123456'),
+  ADMIN_PASSWORD: z.string().default(''),
   UPLOAD_DIR: z.string().default('uploads'),
+  MEDIA_STORAGE_PROVIDER: z.enum(['unconfigured', 's3']).default('unconfigured'),
+  MEDIA_MAX_BYTES: z.string().default('104857600'),
   LOG_LEVEL: z.string().default('debug'),
   RATE_LIMIT_WINDOW_MS: z.string().default('900000'),
   RATE_LIMIT_MAX_REQUESTS: z.string().default('100'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema.superRefine((value, context) => {
+  if (value.NODE_ENV === 'production') {
+    for (const [name, secret] of [['JWT_SECRET', value.JWT_SECRET], ['JWT_REFRESH_SECRET', value.JWT_REFRESH_SECRET]] as const) {
+      if (secret.length < 32 || /^(change[-_ ]?me|secret|password|dev)/i.test(secret)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: [name], message: name + ' must be a strong production secret' });
+      }
+    }
+  }
+}).safeParse(process.env);
 
 if (!parsed.success) {
   console.error('❌ Invalid environment variables:');
@@ -65,6 +75,8 @@ export const env = {
     password: parsed.data.ADMIN_PASSWORD,
   },
   uploadDir: parsed.data.UPLOAD_DIR,
+  mediaStorageProvider: parsed.data.MEDIA_STORAGE_PROVIDER,
+  mediaMaxBytes: parseInt(parsed.data.MEDIA_MAX_BYTES, 10),
   logLevel: parsed.data.LOG_LEVEL,
   rateLimit: {
     windowMs: parseInt(parsed.data.RATE_LIMIT_WINDOW_MS, 10),

@@ -1,0 +1,18 @@
+export type AuthUser = { id: number; email: string; displayName: string; role: string };
+export type AuthResponse = { accessToken: string; user: AuthUser };
+export class AuthClientError extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status; } }
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const url = (path: string) => `${API_BASE_URL}/api${path}`;
+let accessToken: string | null = null;
+let refreshPromise: Promise<boolean> | null = null;
+const sessionExpiredListeners = new Set<() => void>();
+export const getAccessToken = () => accessToken;
+export function onSessionExpired(listener: () => void) { sessionExpiredListeners.add(listener); return () => { sessionExpiredListeners.delete(listener); }; }
+function headers(init?: RequestInit) { const value = new Headers(init?.headers); value.set('Accept', 'application/json'); if (init?.body && !value.has('Content-Type')) value.set('Content-Type', 'application/json'); if (accessToken) value.set('Authorization', `Bearer ${accessToken}`); return value; }
+async function refresh() { if (refreshPromise) return refreshPromise; refreshPromise = (async () => { try { const response = await fetch(url('/auth/refresh'), { method: 'POST', credentials: 'include', headers: { Accept: 'application/json' } }); if (!response.ok) { accessToken = null; return false; } const body = await response.json().catch(() => ({})) as { data?: AuthResponse }; accessToken = body.data?.accessToken || null; return Boolean(accessToken); } catch { accessToken = null; return false; } finally { refreshPromise = null; } })(); return refreshPromise; }
+export async function authRequest<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> { const hadAccessToken = Boolean(accessToken); const response = await fetch(url(path), { ...init, credentials: 'include', headers: headers(init) }); if (response.status === 401 && retry && await refresh()) return authRequest<T>(path, init, false); const body = await response.json().catch(() => ({})) as { data?: T; message?: string; code?: string }; if (!response.ok) { if (response.status === 401 && hadAccessToken) { sessionExpiredListeners.forEach((listener) => listener()); throw new AuthClientError('Your session expired. Please sign in again.', 401); } const error = new AuthClientError(body.message || 'Request failed.', response.status) as AuthClientError & { code?: string; data?: unknown }; error.code = body.code; error.data = body.data; throw error; } return body.data as T; }
+async function credentialsRequest(path: string, payload: Record<string, string>) { const response = await fetch(url(path), { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) }); const body = await response.json().catch(() => ({})) as { data?: AuthResponse; message?: string }; if (!response.ok || !body.data) throw new AuthClientError(body.message || 'Request failed.', response.status); accessToken = body.data.accessToken; return body.data; }
+export const login = (email: string, password: string) => credentialsRequest('/auth/login', { email, password });
+export const register = (email: string, password: string, displayName: string) => credentialsRequest('/auth/register', { email, password, displayName });
+export async function logout() { try { await authRequest('/auth/logout', { method: 'POST' }); } finally { accessToken = null; } }
+export async function restoreSession() { try { return await authRequest<AuthUser>('/auth/me'); } catch (error) { if (error instanceof AuthClientError && error.status === 401) return null; throw error; } }

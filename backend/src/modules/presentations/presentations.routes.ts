@@ -1,0 +1,72 @@
+import { Router } from 'express';
+import multer from 'multer';
+import { randomUUID } from 'crypto';
+import { env } from '../../config/env';
+import { presentationAssetStorage, AssetStorageUnavailableError } from './assetStorage';
+import { Prisma } from '@prisma/client';
+import { z } from 'zod';
+import { prisma } from '../../config/database';
+import { requireAuth } from '../../middleware/auth.middleware';
+import { AppError } from '../../middleware/error.middleware';
+import { sendCreated, sendSuccess } from '../../utils/response';
+import { assertMatchingRevision, nextRevision } from './presentationConcurrency';
+
+const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: env.mediaMaxBytes } });
+const idSchema = z.string().uuid();
+const permissionSchema = z.enum(['VIEW', 'EDIT']);
+const titleSchema = z.string().trim().min(1).max(160);
+const documentSchema = z.object({
+  version: z.number().int().positive(),
+  metadata: z.record(z.unknown()).optional(),
+  slideSize: z.object({ width: z.number().positive(), height: z.number().positive() }).passthrough().optional(),
+  slides: z.array(z.object({ id: z.string().min(1).max(200), objects: z.array(z.object({ id: z.string().min(1), type: z.string().min(1) }).passthrough()).max(500) }).passthrough()).min(1).max(500),
+}).passthrough().superRefine((value, context) => { try { if (Buffer.byteLength(JSON.stringify(value), 'utf8') > 5 * 1024 * 1024) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Presentation document exceeds the 5 MB cloud snapshot limit.' }); } catch { context.addIssue({ code: z.ZodIssueCode.custom, message: 'Presentation document is not serializable.' }); } });
+const createSchema = z.object({ title: titleSchema, document: documentSchema });
+const updateSchema = z.object({ title: titleSchema.optional(), document: documentSchema.optional(), baseRevision: z.number().int().positive() }).refine((value) => value.title !== undefined || value.document !== undefined, { message: 'Provide a title or document update.' });
+const shareSchema = z.object({ email: z.string().trim().email(), permission: permissionSchema });
+const baseRevisionSchema = z.object({ baseRevision: z.number().int().positive() });
+type Access = { presentationId: string; permission: 'OWNER' | 'VIEW' | 'EDIT'; revision: number; document: Prisma.JsonValue };
+async function getAccess(presentationId: string, currentUserId: number): Promise<Access | null> { const item = await prisma.presentation.findFirst({ where: { id: presentationId, OR: [{ ownerId: currentUserId }, { shares: { some: { recipientId: currentUserId } } }] }, include: { shares: { where: { recipientId: currentUserId }, select: { permission: true } } } }); if (!item) return null; const permission = item.ownerId === currentUserId ? 'OWNER' : (item.shares[0]?.permission || 'VIEW'); return { presentationId: item.id, permission, revision: item.revision, document: item.document }; }
+function accessOr404(access: Access | null): Access { if (!access) throw new AppError('Presentation not found', 404); return access; }
+function editorOnly(access: Access) { if (access.permission === 'VIEW') throw new AppError('You only have view access to this presentation.', 403); }
+function jsonDocument(value: unknown): Prisma.InputJsonValue { return value as Prisma.InputJsonValue; }
+function summary(item: { id: string; title: string; revision: number; ownerId: number; createdAt: Date; updatedAt: Date }, permission: string) { return { id: item.id, title: item.title, revision: item.revision, ownerId: item.ownerId, permission, createdAt: item.createdAt, updatedAt: item.updatedAt }; }
+router.use(requireAuth);
+router.get('/', async (req, res, next) => { try { const uid = Number(req.user!.userId); const [owned, shared] = await Promise.all([prisma.presentation.findMany({ where: { ownerId: uid }, orderBy: { updatedAt: 'desc' } }), prisma.presentation.findMany({ where: { shares: { some: { recipientId: uid } } }, include: { shares: { where: { recipientId: uid }, select: { permission: true } } }, orderBy: { updatedAt: 'desc' } })]); sendSuccess(res, [...owned.map((item) => summary(item, 'OWNER')), ...shared.map((item) => summary(item, item.shares[0]?.permission || 'VIEW'))]); } catch (e) { next(e); } });
+router.post('/', async (req, res, next) => { try { const body = createSchema.parse(req.body); const uid = Number(req.user!.userId); const created = await prisma.$transaction(async (tx) => { const item = await tx.presentation.create({ data: { ownerId: uid, title: body.title, document: jsonDocument(body.document), revision: 1 } }); await tx.presentationVersion.create({ data: { presentationId: item.id, authorId: uid, revision: 1, document: jsonDocument(body.document) } }); return item; }); sendCreated(res, { ...summary(created, 'OWNER'), document: created.document, canEdit: true }, 'Presentation created'); } catch (e) { next(e); } });
+router.get('/:id', async (req, res, next) => { try { const access = accessOr404(await getAccess(idSchema.parse(req.params.id), Number(req.user!.userId))); sendSuccess(res, { ...access, canEdit: access.permission !== 'VIEW' }); } catch (e) { next(e); } });
+router.patch('/:id', async (req, res, next) => { try { const presentationId = idSchema.parse(req.params.id); const body = updateSchema.parse(req.body); const uid = Number(req.user!.userId); const updated = await prisma.$transaction(async (tx) => { const access = accessOr404(await getAccess(presentationId, uid)); editorOnly(access); assertMatchingRevision(access.revision, body.baseRevision); const result = await tx.presentation.updateMany({ where: { id: presentationId, revision: body.baseRevision }, data: { ...(body.title !== undefined ? { title: body.title } : {}), ...(body.document !== undefined ? { document: jsonDocument(body.document) } : {}), revision: { increment: 1 } } }); if (result.count !== 1) throw new AppError('Presentation has changed since this draft was loaded.', 409, { code: 'REVISION_CONFLICT' }); const newRevision = nextRevision(body.baseRevision); await tx.presentationVersion.create({ data: { presentationId, authorId: uid, revision: newRevision, document: jsonDocument(body.document !== undefined ? body.document : access.document) } }); return tx.presentation.findUniqueOrThrow({ where: { id: presentationId } }); }); sendSuccess(res, { ...summary(updated, 'OWNER'), document: updated.document, canEdit: true }); } catch (e) { next(e); } });
+router.delete('/:id', async (req, res, next) => { try { const id = idSchema.parse(req.params.id); const deleted = await prisma.presentation.deleteMany({ where: { id, ownerId: Number(req.user!.userId) } }); if (!deleted.count) throw new AppError('Presentation not found', 404); sendSuccess(res, { id }, 'Presentation deleted'); } catch (e) { next(e); } });
+router.get('/:id/versions', async (req, res, next) => { try { const access = accessOr404(await getAccess(idSchema.parse(req.params.id), Number(req.user!.userId))); const versions = await prisma.presentationVersion.findMany({ where: { presentationId: access.presentationId }, select: { id: true, revision: true, authorId: true, createdAt: true, author: { select: { displayName: true, email: true } } }, orderBy: { revision: 'desc' } }); sendSuccess(res, versions); } catch (e) { next(e); } });
+router.get('/:id/versions/:revision', async (req, res, next) => { try { const access = accessOr404(await getAccess(idSchema.parse(req.params.id), Number(req.user!.userId))); const revision = z.coerce.number().int().positive().parse(req.params.revision); const version = await prisma.presentationVersion.findFirst({ where: { presentationId: access.presentationId, revision } }); if (!version) throw new AppError('Version not found', 404); sendSuccess(res, version); } catch (e) { next(e); } });
+router.post('/:id/versions/:revision/restore', async (req, res, next) => { try { const presentationId = idSchema.parse(req.params.id); const revision = z.coerce.number().int().positive().parse(req.params.revision); const body = baseRevisionSchema.parse(req.body); const uid = Number(req.user!.userId); const restored = await prisma.$transaction(async (tx) => { const access = accessOr404(await getAccess(presentationId, uid)); editorOnly(access); assertMatchingRevision(access.revision, body.baseRevision); const source = await tx.presentationVersion.findFirst({ where: { presentationId, revision } }); if (!source) throw new AppError('Version not found', 404); await tx.presentation.updateMany({ where: { id: presentationId, revision: body.baseRevision }, data: { document: jsonDocument(source.document), revision: { increment: 1 } } }); const newRevision = nextRevision(body.baseRevision); await tx.presentationVersion.create({ data: { presentationId, authorId: uid, revision: newRevision, document: jsonDocument(source.document) } }); return tx.presentation.findUniqueOrThrow({ where: { id: presentationId } }); }); sendSuccess(res, { ...summary(restored, 'OWNER'), document: restored.document, canEdit: true }, 'Version restored'); } catch (e) { next(e); } });
+router.get('/:id/shares', async (req, res, next) => { try { const id = idSchema.parse(req.params.id); const owner = await prisma.presentation.findFirst({ where: { id, ownerId: Number(req.user!.userId) } }); if (!owner) throw new AppError('Presentation not found', 404); const shares = await prisma.presentationShare.findMany({ where: { presentationId: id }, include: { recipient: { select: { id: true, email: true, displayName: true } } }, orderBy: { createdAt: 'asc' } }); sendSuccess(res, shares); } catch (e) { next(e); } });
+router.post('/:id/shares', async (req, res, next) => { try { const id = idSchema.parse(req.params.id); const body = shareSchema.parse(req.body); const uid = Number(req.user!.userId); if (!await prisma.presentation.findFirst({ where: { id, ownerId: uid } })) throw new AppError('Presentation not found', 404); const recipient = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } }); if (!recipient || recipient.id === uid) throw new AppError('Recipient account was not found.', 404); const share = await prisma.presentationShare.upsert({ where: { presentationId_recipientId: { presentationId: id, recipientId: recipient.id } }, create: { presentationId: id, recipientId: recipient.id, permission: body.permission }, update: { permission: body.permission } }); sendCreated(res, share, 'Share updated'); } catch (e) { next(e); } });
+router.patch('/:id/shares/:shareId', async (req, res, next) => { try { const id = idSchema.parse(req.params.id); const shareId = idSchema.parse(req.params.shareId); const permission = permissionSchema.parse(req.body.permission); const result = await prisma.presentationShare.updateMany({ where: { id: shareId, presentationId: id, presentation: { ownerId: Number(req.user!.userId) } }, data: { permission } }); if (!result.count) throw new AppError('Share not found', 404); sendSuccess(res, { id: shareId, permission }); } catch (e) { next(e); } });
+router.delete('/:id/shares/:shareId', async (req, res, next) => { try { const id = idSchema.parse(req.params.id); const shareId = idSchema.parse(req.params.shareId); const result = await prisma.presentationShare.deleteMany({ where: { id: shareId, presentationId: id, presentation: { ownerId: Number(req.user!.userId) } } }); if (!result.count) throw new AppError('Share not found', 404); sendSuccess(res, { id: shareId }, 'Share revoked'); } catch (e) { next(e); } });
+router.post('/:id/assets', upload.single('file'), async (req, res, next) => {
+  try {
+    const presentationId = idSchema.parse(req.params.id);
+    const access = accessOr404(await getAccess(presentationId, Number(req.user!.userId)));
+    editorOnly(access);
+    if (!req.file) throw new AppError('A media file is required.', 422);
+    if (!/^audio\/(mpeg|mp4|ogg|wav|webm|aac|x-m4a)$|^video\/(mp4|webm|ogg|quicktime)$/i.test(req.file.mimetype)) throw new AppError('Unsupported media type.', 422);
+    const id = randomUUID(); const storageKey = 'presentations/' + presentationId + '/' + id;
+    try { await presentationAssetStorage.put(storageKey, req.file.buffer, req.file.mimetype, req.file.originalname); } catch (error) { if (error instanceof AssetStorageUnavailableError) throw new AppError(error.message, 503, { code: 'MEDIA_STORAGE_UNAVAILABLE' }); throw error; }
+    const asset = await prisma.presentationAsset.create({ data: { id, presentationId, ownerId: Number(req.user!.userId), storageKey, name: req.file.originalname.slice(0, 255), mimeType: req.file.mimetype, size: req.file.size } });
+    sendCreated(res, asset, 'Media uploaded');
+  } catch (error) { next(error); }
+});
+router.get('/:id/assets/:assetId', async (req, res, next) => {
+  try {
+    const presentationId = idSchema.parse(req.params.id); const assetId = idSchema.parse(req.params.assetId); accessOr404(await getAccess(presentationId, Number(req.user!.userId)));
+    const asset = await prisma.presentationAsset.findFirst({ where: { id: assetId, presentationId } }); if (!asset) throw new AppError('Media asset not found', 404);
+    try { const stored = await presentationAssetStorage.get(asset.storageKey); if (!stored) throw new AppError('Media asset is missing from storage.', 424, { code: 'MEDIA_ASSET_MISSING' }); res.type(asset.mimeType).setHeader('Content-Disposition', 'inline; filename="' + asset.name.replace(/["\r\n]/g, '') + '"').send(stored.body); } catch (error) { if (error instanceof AssetStorageUnavailableError) throw new AppError(error.message, 503, { code: 'MEDIA_STORAGE_UNAVAILABLE' }); throw error; }
+  } catch (error) { next(error); }
+});
+router.delete('/:id/assets/:assetId', async (req, res, next) => {
+  try { const presentationId = idSchema.parse(req.params.id); const assetId = idSchema.parse(req.params.assetId); const asset = await prisma.presentationAsset.findFirst({ where: { id: assetId, presentationId, ownerId: Number(req.user!.userId) } }); if (!asset) throw new AppError('Media asset not found', 404); try { await presentationAssetStorage.delete(asset.storageKey); } catch (error) { if (error instanceof AssetStorageUnavailableError) throw new AppError(error.message, 503, { code: 'MEDIA_STORAGE_UNAVAILABLE' }); throw error; } await prisma.presentationAsset.delete({ where: { id: assetId } }); sendSuccess(res, { id: assetId }, 'Media asset deleted'); } catch (error) { next(error); }
+});
+export { documentSchema };
+export default router;

@@ -39,7 +39,7 @@ io.on('connection', (socket) => {
 });
 
 // Middleware
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({ contentSecurityPolicy: env.isProd }));
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(compression());
 app.use(cookieParser());
@@ -92,6 +92,8 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Start server
+export { app };
+
 async function startServer() {
   await connectDatabase();
   logger.info(`📁 __dirname: ${__dirname}`);
@@ -116,4 +118,4 @@ function gracefulShutdown() {
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
-startServer();
+if (require.main === module) { startServer(); }

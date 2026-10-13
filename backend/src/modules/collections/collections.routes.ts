@@ -5,6 +5,8 @@ import { sendSuccess, sendCreated, parsePagination, buildPaginationMeta } from '
 import { AppError } from '../../middleware/error.middleware';
 import { categoryCodeFromSlug, toCollection, toSong } from '../../utils/hymnMapper';
 import { z } from 'zod';
+import { requireAuth } from '../../middleware/auth.middleware';
+import { submissionLimiter } from '../../middleware/rateLimit.middleware';
 
 const router = Router();
 
@@ -117,7 +119,7 @@ router.get('/:slug/songs', async (req: Request, res: Response, next: NextFunctio
 });
 
 // POST /collections/sincerite/songs — user song submission
-router.post('/sincerite/songs', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/sincerite/songs', submissionLimiter, requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = submitSongSchema.safeParse(req.body);
     if (!parsed.success) {
