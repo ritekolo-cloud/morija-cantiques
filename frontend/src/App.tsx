@@ -77,6 +77,7 @@ import { alignObjects, alignShapes, arrangeObjects, arrangeShapes, boundsOfObjec
 import { authRequest, login as loginAccount, logout as logoutAccount, onSessionExpired, register as registerAccount, restoreSession, type AuthUser } from './authClient';
 import { createCloudPresentation, isRevisionConflict, listCloudPresentations, loadCloudPresentation, updateCloudPresentation, listCloudShares, listCloudVersions, restoreCloudVersion, revokeCloudShare, shareCloudPresentation, updateCloudShare, type CloudPresentationSummary, type CloudShare, type CloudVersion } from './presentationCloud';
 import { startSongProjection } from './songProjection';
+import { audienceCloseMode } from './projectionLifecycle';
 
 type ApiResponse<T> = {
   success?: boolean;
@@ -356,6 +357,35 @@ async function requestProjectionFullscreen() {
   if (!document.fullscreenElement) {
     await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
   }
+}
+
+function ProjectionFullscreenPrompt() {
+  const [fullscreen, setFullscreen] = useState(() => Boolean(document.fullscreenElement));
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const onFullscreenChange = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    onFullscreenChange();
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  if (fullscreen) return null;
+
+  async function enterFullscreen() {
+    setError('');
+    try {
+      await requestProjectionFullscreen();
+      if (!document.fullscreenElement) setError('Fullscreen was blocked. Use the browser fullscreen control or press F11.');
+    } catch {
+      setError('Fullscreen was blocked. Use the browser fullscreen control or press F11.');
+    }
+  }
+
+  return <div className="projection-fullscreen-prompt" role="status">
+    <button type="button" onClick={() => void enterFullscreen()}>Enter fullscreen</button>
+    {error && <span>{error}</span>}
+  </div>;
 }
 
 async function exitAppFullscreen() {
@@ -2222,9 +2252,11 @@ function PresentationsPage() {
 
         if (message.command === 'end-projection') {
           if (isProjectionWindow) {
-            setProjectionEnded(true);
             setPointerMode('off');
-            exitAppFullscreen().catch(() => {});
+            void exitAppFullscreen().finally(() => {
+              if (audienceCloseMode(Boolean(window.opener)) === 'close-window') window.close();
+              else window.history.back();
+            });
           } else {
             setPresenting(false);
             setAudienceWindowOpen(false);
@@ -2684,10 +2716,19 @@ function PresentationsPage() {
   }
 
   function cancelProjection() {
+    const audienceWindow = audienceWindowRef.current;
     sendProjectionCommand('end-projection');
+    if (audienceWindow && !audienceWindow.closed) {
+      window.setTimeout(() => {
+        if (!audienceWindow.closed) audienceWindow.close();
+      }, 150);
+    }
+    audienceWindowRef.current = null;
     setAudienceWindowOpen(false);
     setPresenting(false);
     setShowSlideOverview(false);
+    setProjectionEnded(false);
+    setPresentationScrollProgress(0);
     setPointerMode('off');
     setStatus('Projection cancelled.');
   }
@@ -2756,6 +2797,7 @@ function PresentationsPage() {
             <p>Waiting for presenter</p>
           </div>
         )}
+        <ProjectionFullscreenPrompt />
       </section>
     );
   }
@@ -3060,6 +3102,7 @@ function TextSlideProjectionView({ document: presentation, selectedSlideId, onSe
 
   return <main className="text-slide-audience-view" aria-label="Text slide audience view" tabIndex={0} autoFocus>
     {slide ? <GeneralSlideCanvas key={`${slide.id}:${slide.transition.type}`} slide={presentationSlideToTextSlide(slide, createGeneralSlide({ id: slide.id }))} projection /> : <div className="projection-empty-state">No slide selected.</div>}
+    <ProjectionFullscreenPrompt />
   </main>;
 }
 
