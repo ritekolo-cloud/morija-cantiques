@@ -710,13 +710,29 @@ function normalizeGeneralBodyHtml(html: string) {
   const container = document.createElement('div');
   container.innerHTML = html;
   container.querySelectorAll<HTMLElement>('[style]').forEach((element) => {
-    const allowed = ['background-color', 'color', 'font-weight', 'font-style', 'text-decoration', 'text-align'];
+    const allowed = ['background-color', 'color', 'font-weight', 'font-style', 'text-decoration', 'text-align', 'font-family', 'font-size', 'line-height', 'letter-spacing'];
     [...element.style].forEach((property) => {
       if (!allowed.includes(property)) element.style.removeProperty(property);
     });
     if (!element.getAttribute('style')) element.removeAttribute('style');
   });
   return container.innerHTML;
+}
+
+function applyInlineStyleToSelection(root: HTMLElement, styles: Record<string, string>) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || !selection.anchorNode || !root.contains(selection.anchorNode)) return false;
+  const range = selection.getRangeAt(0);
+  if (range.collapsed) return false;
+  const wrapper = document.createElement('span');
+  Object.entries(styles).forEach(([property, value]) => wrapper.style.setProperty(property, value));
+  wrapper.appendChild(range.extractContents());
+  range.insertNode(wrapper);
+  selection.removeAllRanges();
+  const nextRange = document.createRange();
+  nextRange.selectNodeContents(wrapper);
+  selection.addRange(nextRange);
+  return true;
 }
 
 function compactGeneralBodyHtml(html: string) {
@@ -3256,6 +3272,7 @@ function TextSlidesPage() {
   const textAudienceWindowRef = useRef<Window | null>(null);
   const textAudienceReceiverReadyRef = useRef(false);
   const textProjectionChannelRef = useRef<BroadcastChannel | null>(null);
+  const formattingRangeRef = useRef<Range | null>(null);
   const [shapeInsertKind, setShapeInsertKind] = useState<ShapeKind | null>(null);
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
@@ -3277,6 +3294,16 @@ function TextSlidesPage() {
   const selectedAnimationType = selectedAnimation?.type === 'appear' || selectedAnimation?.type === 'fade' || selectedAnimation?.type === 'fly-in' ? selectedAnimation.type : 'none';
   const selectedAnimationDuration = selectedAnimation?.durationMs || 420;
   const slideIds = textItems.map((item) => item.entryId);
+  useEffect(() => {
+    const rememberSelection = () => {
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const selection = window.getSelection();
+      if (!active?.isContentEditable || !selection || selection.rangeCount === 0 || !selection.anchorNode || !active.contains(selection.anchorNode)) return;
+      formattingRangeRef.current = selection.getRangeAt(0).cloneRange();
+    };
+    document.addEventListener('selectionchange', rememberSelection);
+    return () => document.removeEventListener('selectionchange', rememberSelection);
+  }, []);
   useEffect(() => {
     if (!user) { setCloudItems([]); setCloudId(null); setCloudRevision(null); setCloudCanEdit(false); setCloudState('offline'); return; }
     let cancelled = false;
@@ -3808,7 +3835,18 @@ function TextSlidesPage() {
   }
 
   async function formatCurrentText(command: string, value?: string) {
-    const activeTextEditor = selectedTextIds.length > 0 || (document.activeElement instanceof HTMLElement && document.activeElement.closest('.text-object-content'));
+    const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    let generalEditable = activeElement?.closest<HTMLElement>('[contenteditable="true"]');
+    if (!generalEditable && formattingRangeRef.current) {
+      const savedRoot = formattingRangeRef.current.commonAncestorContainer instanceof HTMLElement ? formattingRangeRef.current.commonAncestorContainer : formattingRangeRef.current.commonAncestorContainer.parentElement;
+      generalEditable = savedRoot?.closest<HTMLElement>('[contenteditable="true"]');
+      if (generalEditable) {
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(formattingRangeRef.current.cloneRange());
+      }
+    }
+    const activeTextEditor = !generalEditable && (selectedTextIds.length > 0 || Boolean(activeElement?.closest('.text-object-content')));
     if (command === 'createLink') {
       const url = window.prompt('Enter a web address (https://, http://, or mailto:):', 'https://');
       if (!url || !isValidHyperlink(url)) { setFileStatus('Enter a valid http, https, or mailto link'); return; }
@@ -3817,6 +3855,47 @@ function TextSlidesPage() {
     }
     if (activeTextEditor) {
       window.dispatchEvent(new CustomEvent('text-format-command', { detail: { command, value } }));
+      return;
+    }
+    if (generalEditable && selectedItem) {
+      const placeholder = generalEditable.getAttribute('aria-label') === 'Slide title' ? 'title' : generalEditable.getAttribute('aria-label') === 'Slide subtitle' ? 'subtitle' : 'body';
+      const isBody = placeholder === 'body';
+      const numericSize = value === undefined ? NaN : Number(value);
+      if (command === 'fontSize' && Number.isFinite(numericSize)) {
+        const size = Math.max(1, Math.min(400, Math.round(numericSize)));
+        if (!applyInlineStyleToSelection(generalEditable, { 'font-size': `${size}px` })) {
+          if (isBody) updateSelectedSlide({ ...selectedItem.slide, fontSize: size });
+          else if (placeholder === 'title') updateSelectedSlide({ ...selectedItem.slide, titleFontSize: size });
+          else if (placeholder === 'subtitle') updateSelectedSlide({ ...selectedItem.slide, subtitleFontSize: size });
+        } else {
+          generalEditable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'formatFontSize' }));
+        }
+        return;
+      }
+      if (!isBody && command === 'textColor' && value) {
+        updateSelectedSlide({ ...selectedItem.slide, ...(placeholder === 'title' ? { titleColor: value } : { subtitleColor: value }) });
+        return;
+      }
+      if (!isBody && (command === 'justifyLeft' || command === 'justifyCenter' || command === 'justifyRight')) {
+        const alignment = command === 'justifyCenter' ? 'center' : command === 'justifyRight' ? 'right' : 'left';
+        updateSelectedSlide({ ...selectedItem.slide, ...(placeholder === 'title' ? { titleAlign: alignment } : { subtitleAlign: alignment }) });
+        return;
+      }
+      if (command === 'textColor' && value) {
+        document.execCommand('styleWithCSS', false, 'true');
+        document.execCommand('foreColor', false, value);
+      } else if (command === 'hiliteColor' && value) {
+        document.execCommand('styleWithCSS', false, 'true');
+        document.execCommand('hiliteColor', false, value === 'transparent' ? 'transparent' : value);
+      } else if (command === 'fontName' || command === 'bold' || command === 'italic' || command === 'underline' || command.startsWith('justify')) {
+        document.execCommand('styleWithCSS', false, 'true');
+        document.execCommand(command, false, value);
+      } else if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
+        document.execCommand(command, false);
+      } else {
+        document.execCommand(command, false, value);
+      }
+      generalEditable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: `format${command}` }));
       return;
     }
     if (command === 'paste') {
@@ -3889,6 +3968,7 @@ function TextSlidesPage() {
         textBoxFill={selectedTextIds.length ? (selectedItem?.slide.textObjects?.find((text) => selectedTextIds.includes(text.id))?.style.backgroundColor || 'transparent') : ''}
         onTextBoxFill={setSelectedTextBoxFill}
         textColor={selectedItem?.slide.textObjects?.find((text) => selectedTextIds.includes(text.id))?.style.color || selectedItem?.slide.textColor || '#24104f'}
+        fontSize={Math.max(1, Math.min(400, Math.round(selectedItem?.slide.fontSize || 30)))}
         onShapeInsert={setShapeInsertKind}
         onImageInsert={insertImage}
         onAudioInsert={(file) => void insertMedia(file, 'audio')}

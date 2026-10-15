@@ -322,7 +322,10 @@ export function textSlideToPresentationSlide(source: TextSlideSource): Presentat
   const presentationLayout = source.presentationLayout || (source.layout === 'title-body' ? 'title-and-content' : 'title-only');
   const slide = createPresentationSlide(presentationLayout);
   slide.id = source.id;
-  slide.background = { color: source.background.toLowerCase() === '#cdeeff' ? '#ffffff' : source.background };
+  // Keep the authored slide background verbatim.  The editor and audience
+  // canvas both consume this value, so normalizing a valid color here would
+  // make the projected slide diverge from the editing surface.
+  slide.background = { color: source.background };
   const transitionType = source.transitionType === 'fade' || source.transitionType === 'push' || source.transitionType === 'wipe' ? source.transitionType : 'none';
   slide.transition = { ...slide.transition, type: transitionType, durationMs: Math.max(0, Math.min(3000, source.transitionDurationMs || slide.transition.durationMs)) };
   slide.objects.push(...(source.shapeObjects || []).map((shape) => JSON.parse(JSON.stringify(shape)) as ShapeObject));

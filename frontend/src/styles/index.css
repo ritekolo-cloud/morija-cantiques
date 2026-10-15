@@ -1984,8 +1984,6 @@ h2 {
 .general-slide-body p {
   margin: 0 0 0.58em !important;
   padding: 0 !important;
-  font-size: inherit !important;
-  line-height: inherit !important;
 }
 
 .general-slide-body div,
@@ -1994,8 +1992,6 @@ h2 {
   margin-bottom: 0.58em !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
-  font-size: inherit !important;
-  line-height: inherit !important;
 }
 
 .general-slide-body p:empty,
@@ -2147,7 +2143,7 @@ h2 {
   padding: 12px 14px;
   font-size: var(--general-slide-font-size, 30px);
   line-height: 1.35;
-  overflow: auto;
+  overflow: hidden;
   border: 1px dashed #c4b5fd;
   border-radius: 8px;
 }

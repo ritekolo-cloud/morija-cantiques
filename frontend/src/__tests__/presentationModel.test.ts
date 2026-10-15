@@ -149,6 +149,17 @@ describe('presentation model', () => {
     expect(roundTrip.animationObjectIds).toEqual(['text-1']);
   });
 
+  it('keeps authored slide backgrounds and inline body styling through conversion', () => {
+    const styled = source();
+    styled.background = '#cdeeff';
+    styled.bodyHtml = '<p style="text-align:center"><span style="color:#6d28d9;background-color:#ddd6fe;font-size:72px;font-weight:700">Styled words</span></p>';
+    const slide = textSlideToPresentationSlide(styled);
+    const body = slide.objects.find((object): object is TextObject => object.type === 'text' && object.placeholder?.kind === 'body');
+    expect(slide.background.color).toBe('#cdeeff');
+    expect(body?.html).toBe(styled.bodyHtml);
+    expect(presentationSlideToTextSlide(slide, styled).bodyHtml).toBe(styled.bodyHtml);
+  });
+
   it('deep-clones documents and validates duplicate IDs and invalid geometry', () => {
     const document = createPresentationDocument();
     document.slides[0].objects = [textObject];
