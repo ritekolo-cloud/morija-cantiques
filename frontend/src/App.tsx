@@ -1711,6 +1711,9 @@ function Shell({ children }: { children: React.ReactNode }) {
     writeLocal(NAV_COLLAPSED_KEY, next);
   }
 
+  const isAudienceRoute = new URLSearchParams(window.location.search).get('projection') === '1' || path === '/text-slides/audience' || path === '/app/text-slides/audience' || path === '/presentations/audience' || path === '/app/presentations/audience';
+  if (isAudienceRoute) return <>{children}</>;
+
   return (
     <div className="app-shell">
       <header className={`topbar ${navCollapsed ? 'collapsed' : ''}`}>
@@ -3738,8 +3741,8 @@ function TextSlidesPage() {
         textAudienceReceiverReadyRef.current = true;
         setTextAudienceOpen(true);
         setFileStatus(event.data.fullscreen
-          ? 'Text-slide audience is ready in browser fullscreen.'
-          : 'Text-slide audience is ready, but browser fullscreen was not granted. Use the browser fullscreen control or F11 if needed.');
+          ? 'Audience connected.'
+          : 'Audience connected. Fullscreen may require the audience window control or F11.');
         const audience = textAudienceWindowRef.current;
         if (audience && !audience.closed) void requestAudienceWindowFullscreen(audience);
       } else if (event.data?.type === 'morija-text-audience-closed' && event.data.audience === 'text-slides') {

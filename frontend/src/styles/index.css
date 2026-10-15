@@ -2282,6 +2282,84 @@ h2 {
   scrollbar-width: none;
 }
 
+/* Keep the ribbon available without letting its contents expand the page. */
+.presentation-editor-shell {
+  min-width: 0;
+  max-width: 100%;
+}
+.presentation-editor-shell .presentation-ribbon-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  min-height: 38px;
+  flex-wrap: nowrap;
+  background: #faf9ff;
+  border-bottom-color: #c4b5fd;
+}
+.presentation-editor-shell .presentation-ribbon-tabs button {
+  color: #24104f;
+  border-bottom-color: transparent;
+  font-weight: 650;
+}
+.presentation-editor-shell .presentation-ribbon-tabs button.active {
+  color: #ffffff;
+  background: #5b21b6;
+  border-bottom-color: #24104f;
+}
+.presentation-editor-shell .presentation-ribbon {
+  min-height: 58px;
+  max-height: 116px;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #f6f5ff;
+  border-bottom-color: #c4b5fd;
+}
+.presentation-editor-shell .presentation-ribbon-group {
+  padding: 0 7px;
+  border-right-color: #ddd6fe;
+}
+.presentation-editor-shell .presentation-ribbon-group-items {
+  flex-wrap: nowrap;
+}
+.presentation-editor-shell .presentation-ribbon-button,
+.presentation-editor-shell .presentation-ribbon-select,
+.presentation-editor-shell .presentation-ribbon-number,
+.presentation-editor-shell .presentation-ribbon-color input {
+  flex: none;
+}
+.presentation-editor-shell .presentation-ribbon-button {
+  color: #24104f;
+}
+.presentation-editor-shell .presentation-ribbon-button:hover:not(:disabled),
+.presentation-editor-shell .presentation-ribbon-button:focus-visible {
+  border-color: #7c3aed;
+  background: #ede9fe;
+}
+.presentation-editor-shell .presentation-ribbon-hex input {
+  width: 64px;
+  height: 24px;
+  padding: 2px 4px;
+  border: 1px solid #c4b5fd;
+  border-radius: 4px;
+  color: #24104f;
+  background: #ffffff;
+}
+.presentation-editor-shell .presentation-ribbon-number-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #4c1d95;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .presentation-editor-shell .presentation-ribbon { max-height: 96px; }
+  .presentation-editor-shell .presentation-ribbon-tabs button { padding-inline: 9px; }
+}
+
 .general-slide-drawings,
 .general-editor-drawing-overlay {
   position: absolute;
