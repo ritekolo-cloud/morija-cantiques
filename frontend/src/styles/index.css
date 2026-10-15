@@ -2183,6 +2183,11 @@ h2 {
   background: #ffffff;
 }
 .presentation-editor-shell .text-slides-list { gap: 6px; }
+.presentation-editor-shell .text-slides-list:focus-visible {
+  outline: 2px solid #6d28d9;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
 .presentation-editor-shell .text-slide-list-item {
   grid-template-columns: 84px minmax(0, 1fr);
   gap: 8px;
@@ -2197,6 +2202,16 @@ h2 {
   border-color: #5b21b6;
   background: #f5f3ff;
   box-shadow: 0 0 0 2px rgba(91, 33, 182, 0.14);
+}
+.presentation-editor-shell .text-slide-list-item.selected {
+  border-color: #6d28d9;
+  background: #ede9fe;
+  box-shadow: inset 4px 0 0 #6d28d9, 0 0 0 1px rgba(109, 40, 217, 0.2);
+}
+.presentation-editor-shell .text-slide-list-item.active.selected {
+  border-color: #24104f;
+  background: #ddd6fe;
+  box-shadow: inset 4px 0 0 #24104f, 0 0 0 2px rgba(36, 16, 79, 0.22);
 }
 .presentation-editor-shell .text-slide-thumbnail {
   width: 84px;

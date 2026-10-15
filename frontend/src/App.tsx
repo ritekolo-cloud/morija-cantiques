@@ -68,7 +68,7 @@ import { MEDIA_MAX_BYTES, savePresentationAsset, supportedMediaType } from './pr
 import { exportPresentationToPptx, getPptxExportLimitations, importPptx } from './pptxInterop';
 import { usePresentationDocument } from './presentationStore';
 import { createStableId, fitPresentationZoomPercent, isValidHyperlink, presentationSlideToTextSlide, serializePresentationDocument, type AudioObject, type VideoObject, type DrawingObject, type PresentationDocument, type SlideAnimation, type SlideComment, type SlideLayout, type SupportedTransitionType } from './presentationModel';
-import { deleteSlide, duplicateSlide, getVisibleSlideId, insertSlide, reorderSlides, updateSlide } from './presentationCommands';
+import { deleteSlide, duplicateSlide, getVisibleSlideId, insertSlide, nextSlideSelection, reorderSlides, updateSlide } from './presentationCommands';
 import { ShapeEditorOverlay, type ShapeKind } from './ShapeEditorOverlay';
 import { ImageEditorOverlay } from './ImageEditorOverlay';
 import { TextEditorOverlay } from './TextEditorOverlay';
@@ -3247,6 +3247,8 @@ function TextSlidesPage() {
   const isProjectionWindow = new URLSearchParams(window.location.search).get('projection') === '1' || window.location.pathname === '/text-slides/audience' || window.location.pathname === '/app/text-slides/audience';
   const [zoom, setZoom] = useState(65);
   const [viewMode, setViewMode] = useState<'editor' | 'sorter'>('editor');
+  const [selectedSlideIds, setSelectedSlideIds] = useState<string[]>([]);
+  const slideSelectionAnchorRef = useRef<string | null>(null);
   const [fitMode, setFitMode] = useState(false);
   const [printRequested, setPrintRequested] = useState(false);
   const [fileStatus, setFileStatus] = useState('');
@@ -3274,6 +3276,7 @@ function TextSlidesPage() {
   const selectedAnimation = selectedItem?.slide.animations?.find((animation) => [...selectedShapeIds, ...selectedImageIds, ...selectedTextIds].includes(animation.objectId));
   const selectedAnimationType = selectedAnimation?.type === 'appear' || selectedAnimation?.type === 'fade' || selectedAnimation?.type === 'fly-in' ? selectedAnimation.type : 'none';
   const selectedAnimationDuration = selectedAnimation?.durationMs || 420;
+  const slideIds = textItems.map((item) => item.entryId);
   useEffect(() => {
     if (!user) { setCloudItems([]); setCloudId(null); setCloudRevision(null); setCloudCanEdit(false); setCloudState('offline'); return; }
     let cancelled = false;
@@ -3488,6 +3491,31 @@ function TextSlidesPage() {
     if (!editor.selectedSlideId && editor.document.slides[0]) editor.selectSlide(editor.document.slides[0].id);
     if (editor.selectedSlideId && !editor.document.slides.some((slide) => slide.id === editor.selectedSlideId)) editor.selectSlide(editor.document.slides[0]?.id ?? null);
   }, [editor.document.slides, editor.selectedSlideId, editor.selectSlide]);
+
+  useEffect(() => {
+    setSelectedSlideIds((current) => {
+      const valid = current.filter((id) => slideIds.includes(id));
+      return valid.length || !editor.selectedSlideId ? valid : [editor.selectedSlideId];
+    });
+  }, [editor.selectedSlideId, slideIds.join('|')]);
+
+  function handleSlideSelection(id: string, event: React.MouseEvent<HTMLButtonElement>) {
+    const additive = event.ctrlKey || event.metaKey;
+    const rangeAnchor = event.shiftKey ? slideSelectionAnchorRef.current : null;
+    setSelectedSlideIds((current) => nextSlideSelection(slideIds, current, id, { additive, rangeAnchor }));
+    slideSelectionAnchorRef.current = id;
+    editor.selectSlide(id);
+  }
+
+  function handleSlideListKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') return;
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (target?.closest('[contenteditable="true"], input, textarea, select')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedSlideIds(slideIds);
+    slideSelectionAnchorRef.current = editor.selectedSlideId || slideIds[0] || null;
+  }
 
   function addTextSlide() {
     const source = createGeneralSlide();
@@ -3914,8 +3942,8 @@ function TextSlidesPage() {
         {viewMode === 'sorter' ? <TextSlideSorter items={textItems} selectedId={editor.selectedSlideId} onSelect={(id) => { editor.selectSlide(id); setViewMode('editor'); }} onMove={moveSlide} onDuplicate={duplicateSlideById} onDelete={deleteSlideById} /> : <div className="text-slides-workspace">
           <aside className="text-slides-sidebar">
             <div className="presentation-panel-heading"><h2>Slides</h2><span className="count-pill">{textItems.length}</span></div>
-            <div className="text-slides-list">
-              {textItems.map((item, index) => <button key={item.entryId} title={item.slide.title || 'Untitled text slide'} className={`text-slide-list-item ${item.entryId === editor.selectedSlideId ? 'active' : ''}`} onClick={() => editor.selectSlide(item.entryId)}><span className="text-slide-thumbnail"><GeneralSlideCanvas slide={item.slide} /></span><span className="text-slide-list-copy"><span className="text-slide-list-number">{index + 1}</span><strong>{item.slide.title || 'Untitled text slide'}</strong><small>{generalSlidePreview(item.slide)}</small></span></button>)}
+            <div className="text-slides-list" tabIndex={0} aria-label="Slide navigator" aria-multiselectable="true" onKeyDown={handleSlideListKeyDown}>
+              {textItems.map((item, index) => { const active = item.entryId === editor.selectedSlideId; const selected = selectedSlideIds.includes(item.entryId); return <button key={item.entryId} title={item.slide.title || 'Untitled text slide'} aria-pressed={selected} className={`text-slide-list-item ${active ? 'active' : ''} ${selected ? 'selected' : ''}`} onClick={(event) => handleSlideSelection(item.entryId, event)}><span className="text-slide-thumbnail"><GeneralSlideCanvas slide={item.slide} /></span><span className="text-slide-list-copy"><span className="text-slide-list-number">{index + 1}</span><strong>{item.slide.title || 'Untitled text slide'}</strong><small>{generalSlidePreview(item.slide)}</small></span></button>; })}
             </div>
             <p className="text-slides-sidebar-note">Text slides use a separate document from song presentations. Use Ctrl+M to add another slide.</p>
 <section className="cloud-presentation-panel" aria-label="Cloud presentations">

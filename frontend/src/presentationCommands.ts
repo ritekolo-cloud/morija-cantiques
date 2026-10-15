@@ -45,6 +45,28 @@ export function reorderSlides(document: PresentationDocument, fromIndex: number,
   return { ...document, slides };
 }
 
+export function nextSlideSelection(
+  slideIds: string[],
+  selectedIds: string[],
+  clickedId: string,
+  options: { additive?: boolean; rangeAnchor?: string | null } = {},
+) {
+  const clickedIndex = slideIds.indexOf(clickedId);
+  if (clickedIndex < 0) return selectedIds;
+  if (options.rangeAnchor && slideIds.includes(options.rangeAnchor)) {
+    const anchorIndex = slideIds.indexOf(options.rangeAnchor);
+    const from = Math.min(anchorIndex, clickedIndex);
+    const to = Math.max(anchorIndex, clickedIndex);
+    return slideIds.slice(from, to + 1);
+  }
+  if (options.additive) {
+    return selectedIds.includes(clickedId)
+      ? selectedIds.filter((id) => id !== clickedId)
+      : [...selectedIds, clickedId];
+  }
+  return [clickedId];
+}
+
 
 export function getVisibleSlideId(document: PresentationDocument, currentId: string | null, direction: -1 | 1): string | null {
   const visible = document.slides.filter((slide) => !slide.hidden);

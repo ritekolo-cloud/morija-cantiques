@@ -19,7 +19,7 @@ import {
   type TextSlideSource,
 } from '../presentationModel';
 import { resolveSelectedSlideId } from '../presentationStore';
-import { duplicateSlide, reorderSlides } from '../presentationCommands';
+import { duplicateSlide, nextSlideSelection, reorderSlides } from '../presentationCommands';
 
 const geometry = (x: number, y: number, zIndex: number) => ({ x, y, width: 120, height: 60, rotation: 0, zIndex });
 
@@ -35,6 +35,17 @@ const textObject: TextObject = {
   verticalAlign: 'top', margins: { left: 12, right: 12, top: 10, bottom: 10 }, autofit: 'shrink-text',
   html: '<span class="text-bullet">• </span>First<br>Second',
 };
+
+describe('slide navigator selection', () => {
+  const ids = ['slide-1', 'slide-2', 'slide-3', 'slide-4'];
+
+  it('supports normal, additive, toggle, range, and select-all selection', () => {
+    expect(nextSlideSelection(ids, [], 'slide-2')).toEqual(['slide-2']);
+    expect(nextSlideSelection(ids, ['slide-2'], 'slide-4', { additive: true })).toEqual(['slide-2', 'slide-4']);
+    expect(nextSlideSelection(ids, ['slide-2', 'slide-4'], 'slide-2', { additive: true })).toEqual(['slide-4']);
+    expect(nextSlideSelection(ids, ['slide-2'], 'slide-4', { rangeAnchor: 'slide-2' })).toEqual(['slide-2', 'slide-3', 'slide-4']);
+  });
+});
 
 const shapeObject: ShapeObject = {
   id: 'shape-1', type: 'shape', geometry: geometry(240, 120, 2),
