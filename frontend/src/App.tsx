@@ -849,6 +849,11 @@ function presentationItemKind(item: PresentationItem) {
   return item.type === 'song' ? 'Song' : 'Text';
 }
 
+function generalSlidePreview(slide: GeneralSlide) {
+  const text = slide.bodyHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text || 'Empty body';
+}
+
 function useDoubleTapFullscreen(onDoubleTap: () => void) {
   const lastTapRef = useRef(0);
 
@@ -1180,6 +1185,8 @@ function GeneralSlideEditor({
   drawingWidth?: number;
 }) {
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const titleRef = useRef<HTMLDivElement | null>(null);
+  const subtitleRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     target: 'title' | 'subtitle' | 'body';
@@ -1279,11 +1286,21 @@ function GeneralSlideEditor({
     });
   }, [slide.id, slide.titleOffsetX, slide.titleOffsetY, slide.subtitleOffsetX, slide.subtitleOffsetY, slide.titleWidth, slide.titleHeight, slide.subtitleWidth, slide.subtitleHeight, slide.bodyWidth, slide.bodyHeight, slide.bodyOffsetX, slide.bodyOffsetY]);
 
+  // These are intentionally uncontrolled while focused. Writing React children or
+  // innerHTML after every input destroys the browser's native caret and selection.
+  // Synchronize only when changing slides or when an external update arrives while
+  // the corresponding editor is not focused.
   useLayoutEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== slide.bodyHtml) {
+    if (titleRef.current && document.activeElement !== titleRef.current && titleRef.current.textContent !== slide.title) {
+      titleRef.current.textContent = slide.title;
+    }
+    if (subtitleRef.current && document.activeElement !== subtitleRef.current && subtitleRef.current.textContent !== slide.subtitle) {
+      subtitleRef.current.textContent = slide.subtitle;
+    }
+    if (editorRef.current && document.activeElement !== editorRef.current && editorRef.current.innerHTML !== slide.bodyHtml) {
       editorRef.current.innerHTML = slide.bodyHtml;
     }
-  }, [slide.id, slide.bodyHtml]);
+  }, [slide.id, slide.title, slide.subtitle, slide.bodyHtml, activePlaceholder]);
 
   useLayoutEffect(() => {
     const body = editorRef.current;
@@ -1325,22 +1342,6 @@ function GeneralSlideEditor({
       document.execCommand(command, false, value);
     }
     update({ bodyHtml: normalizeGeneralBodyHtml(editorRef.current?.innerHTML || '') });
-  }
-
-  function handleBodyKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    document.execCommand('insertLineBreak');
-    update({ bodyHtml: normalizeGeneralBodyHtml(editorRef.current?.innerHTML || '') });
-    window.requestAnimationFrame(fitBodyToStage);
-  }
-
-  function handleBodyPaste(event: React.ClipboardEvent<HTMLDivElement>) {
-    event.preventDefault();
-    const plainText = event.clipboardData.getData('text/plain');
-    document.execCommand('insertText', false, plainText.replace(/\r\n/g, '\n'));
-    update({ bodyHtml: normalizeGeneralBodyHtml(editorRef.current?.innerHTML || '') });
-    window.requestAnimationFrame(fitBodyToStage);
   }
 
   function finishDrag() {
@@ -1532,6 +1533,7 @@ function GeneralSlideEditor({
         {slide.showTitle !== false && <div className="general-editor-text-box general-editor-title-box" style={{ width: `${boxSizes.titleWidth}%`, minHeight: `${boxSizes.titleHeight}px`, transform: `translate(${dragOffsets.titleX}px, ${dragOffsets.titleY}px)` }}>
           <span className="general-editor-move-handle" title="Move title box" aria-label="Move title box" onPointerDown={(event) => beginDrag('title', event)}>Move</span>
           <div
+            ref={titleRef}
             className={`general-editor-placeholder ${activePlaceholder === 'title' ? 'is-editing' : ''}`}
             contentEditable
             suppressContentEditableWarning
@@ -1542,12 +1544,13 @@ function GeneralSlideEditor({
             style={{ color: slide.titleColor || slide.textColor, fontSize: `${slide.titleFontSize || 44}px`, textAlign: slide.titleAlign || 'center' }}
             role="textbox"
             aria-label="Slide title"
-          >{slide.title}</div>
+          />
           <span className="general-editor-resize-handle general-editor-resize-bottom-right" title="Resize title box" aria-label="Resize title box" onPointerDown={(event) => beginResize('title', 'bottom-right', event)} />
         </div>}
         {slide.showSubtitle !== false && <div className="general-editor-text-box general-editor-subtitle-box" style={{ width: `${boxSizes.subtitleWidth}%`, minHeight: `${boxSizes.subtitleHeight}px`, transform: `translate(${dragOffsets.subtitleX}px, ${dragOffsets.subtitleY}px)` }}>
           <span className="general-editor-move-handle" title="Move subtitle box" aria-label="Move subtitle box" onPointerDown={(event) => beginDrag('subtitle', event)}>Move</span>
           <div
+            ref={subtitleRef}
             className={`general-editor-placeholder ${activePlaceholder === 'subtitle' ? 'is-editing' : ''}`}
             contentEditable
             suppressContentEditableWarning
@@ -1558,7 +1561,7 @@ function GeneralSlideEditor({
             style={{ color: slide.subtitleColor || slide.textColor, fontSize: `${slide.subtitleFontSize || 22}px`, textAlign: slide.subtitleAlign || 'center' }}
             role="textbox"
             aria-label="Slide subtitle"
-          >{slide.subtitle}</div>
+          />
           <span className="general-editor-resize-handle general-editor-resize-bottom-right" title="Resize subtitle box" aria-label="Resize subtitle box" onPointerDown={(event) => beginResize('subtitle', 'bottom-right', event)} />
         </div>}
         {slide.showBody !== false && <div className="general-editor-body-box" style={{ width: `${boxSizes.bodyWidth}%`, minHeight: `${boxSizes.bodyHeight}px`, transform: `translate(${dragOffsets.bodyX}px, ${dragOffsets.bodyY}px)` }}>
@@ -1574,8 +1577,6 @@ function GeneralSlideEditor({
             }}
             onFocus={() => setActivePlaceholder('body')}
             onBlur={() => setActivePlaceholder(null)}
-            onKeyDown={handleBodyKeyDown}
-            onPaste={handleBodyPaste}
             data-placeholder="Click to add text"
             style={{ fontSize: `calc(var(--general-slide-font-size) * ${editorBodyScale})` }}
             role="textbox"
@@ -3869,7 +3870,7 @@ function TextSlidesPage() {
           <aside className="text-slides-sidebar">
             <div className="presentation-panel-heading"><h2>Slides</h2><span className="count-pill">{textItems.length}</span></div>
             <div className="text-slides-list">
-              {textItems.map((item, index) => <button key={item.entryId} className={`text-slide-list-item ${item.entryId === editor.selectedSlideId ? 'active' : ''}`} onClick={() => editor.selectSlide(item.entryId)}><span className="text-slide-thumbnail"><GeneralSlideCanvas slide={item.slide} /></span><span className="text-slide-list-copy"><span className="text-slide-list-number">{index + 1}</span><strong>{item.slide.title || 'Untitled text slide'}</strong><small>{item.slide.layout.replace('-', ' ')}</small></span></button>)}
+              {textItems.map((item, index) => <button key={item.entryId} title={item.slide.title || 'Untitled text slide'} className={`text-slide-list-item ${item.entryId === editor.selectedSlideId ? 'active' : ''}`} onClick={() => editor.selectSlide(item.entryId)}><span className="text-slide-thumbnail"><GeneralSlideCanvas slide={item.slide} /></span><span className="text-slide-list-copy"><span className="text-slide-list-number">{index + 1}</span><strong>{item.slide.title || 'Untitled text slide'}</strong><small>{generalSlidePreview(item.slide)}</small></span></button>)}
             </div>
             <p className="text-slides-sidebar-note">Text slides use a separate document from song presentations. Use Ctrl+M to add another slide.</p>
 <section className="cloud-presentation-panel" aria-label="Cloud presentations">
