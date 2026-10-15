@@ -248,9 +248,13 @@ type ProjectionAudienceEvent = {
 
 type ProjectionReadyMessage = {
   type: 'morija-projection-ready';
+  audience: 'songs';
+  fullscreen: boolean;
 };
 
 type ProjectionMessage = ProjectionState | ProjectionCommand | ProjectionAudienceEvent | ProjectionReadyMessage;
+
+type TextProjectionMessage = ProjectionCommand | { type: 'morija-text-projection-ready'; audience: 'text-slides'; fullscreen: boolean } | { type: 'morija-text-audience-closed'; audience: 'text-slides' };
 
 type PresentationDisplayDetails = {
   availLeft?: number;
@@ -359,35 +363,6 @@ async function requestProjectionFullscreen() {
   }
 }
 
-function ProjectionFullscreenPrompt() {
-  const [fullscreen, setFullscreen] = useState(() => Boolean(document.fullscreenElement));
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const onFullscreenChange = () => setFullscreen(Boolean(document.fullscreenElement));
-    document.addEventListener('fullscreenchange', onFullscreenChange);
-    onFullscreenChange();
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
-  }, []);
-
-  if (fullscreen) return null;
-
-  async function enterFullscreen() {
-    setError('');
-    try {
-      await requestProjectionFullscreen();
-      if (!document.fullscreenElement) setError('Fullscreen was blocked. Use the browser fullscreen control or press F11.');
-    } catch {
-      setError('Fullscreen was blocked. Use the browser fullscreen control or press F11.');
-    }
-  }
-
-  return <div className="projection-fullscreen-prompt" role="status">
-    <button type="button" onClick={() => void enterFullscreen()}>Enter fullscreen</button>
-    {error && <span>{error}</span>}
-  </div>;
-}
-
 async function exitAppFullscreen() {
   if (document.fullscreenElement) {
     await document.exitFullscreen?.();
@@ -404,7 +379,6 @@ function audienceWindowFeatures(display?: PresentationDisplayDetails | null) {
 
   return [
     'popup=yes',
-    'fullscreen=yes',
     'toolbar=no',
     'menubar=no',
     'location=no',
@@ -423,8 +397,12 @@ async function requestAudienceWindowFullscreen(audienceWindow: Window) {
     if (!audienceWindow.document.fullscreenElement) {
       await audienceWindow.document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
     }
+    return Boolean(audienceWindow.document.fullscreenElement);
   } catch {
-    // The projection window retries from its own user-activation events when the browser blocks this call.
+    // A popup opened by window.open does not inherit the presenter's user activation.
+    // Keep this opportunistic for installed-app contexts, but never make it a required
+    // second action in the audience window.
+    return false;
   }
 }
 
@@ -687,13 +665,13 @@ function createGeneralSlide(overrides: Partial<GeneralSlide> = {}): GeneralSlide
     reference: '',
     layout: 'title-body',
     fontFamily: 'Georgia, serif',
-    fontSize: 42,
-    titleFontSize: 72,
-    subtitleFontSize: 28,
+    fontSize: 30,
+    titleFontSize: 44,
+    subtitleFontSize: 22,
     textColor: '#24104f',
     titleColor: '#24104f',
     subtitleColor: '#4c4473',
-    highlightColor: '#fff09a',
+    highlightColor: '#ddd6fe',
     titleAlign: 'center',
     subtitleAlign: 'center',
     bodyAlign: 'left',
@@ -1243,12 +1221,13 @@ function GeneralSlideEditor({
     bodyHeight: slide.bodyHeight || 260,
   });
   const [sizeDrafts, setSizeDrafts] = useState({
-    body: String(slide.fontSize),
-    title: String(slide.titleFontSize || 72),
-    subtitle: String(slide.subtitleFontSize || 28),
+    body: String(slide.fontSize || 30),
+    title: String(slide.titleFontSize || 44),
+    subtitle: String(slide.subtitleFontSize || 22),
   });
   const editorBodyScaleRef = useRef(1);
   const [editorBodyScale, setEditorBodyScale] = useState(1);
+  const [activePlaceholder, setActivePlaceholder] = useState<'title' | 'subtitle' | 'body' | null>(null);
 
   function fitBodyToStage() {
     const body = editorRef.current;
@@ -1267,7 +1246,9 @@ function GeneralSlideEditor({
     const naturalHeight = body.scrollHeight;
     body.style.fontSize = previousSize;
     if (!availableHeight || !naturalHeight) return;
-    const nextScale = clampNumber((availableHeight / naturalHeight) * 0.94, 0.12, 1.05);
+    const nextScale = naturalHeight > availableHeight
+      ? clampNumber((availableHeight / naturalHeight) * 0.96, 0.65, 1)
+      : 1;
     if (Math.abs(nextScale - editorBodyScaleRef.current) > 0.01) {
       editorBodyScaleRef.current = nextScale;
       setEditorBodyScale(nextScale);
@@ -1292,9 +1273,9 @@ function GeneralSlideEditor({
       bodyHeight: slide.bodyHeight || 260,
     });
     setSizeDrafts({
-      body: String(slide.fontSize),
-      title: String(slide.titleFontSize || 72),
-      subtitle: String(slide.subtitleFontSize || 28),
+      body: String(slide.fontSize || 30),
+      title: String(slide.titleFontSize || 44),
+      subtitle: String(slide.subtitleFontSize || 22),
     });
   }, [slide.id, slide.titleOffsetX, slide.titleOffsetY, slide.subtitleOffsetX, slide.subtitleOffsetY, slide.titleWidth, slide.titleHeight, slide.subtitleWidth, slide.subtitleHeight, slide.bodyWidth, slide.bodyHeight, slide.bodyOffsetX, slide.bodyOffsetY]);
 
@@ -1509,13 +1490,13 @@ function GeneralSlideEditor({
             <option value="Verdana, sans-serif">Verdana</option>
             <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
           </select>
-          <input title="Body font size" aria-label="Body font size" type="number" inputMode="numeric" min="20" max="96" value={sizeDrafts.body} onChange={(event) => changeSize('body', 'fontSize', event.target.value, 20, 96)} onBlur={() => commitSize('body', 'fontSize', 20, 96, 42)} />
+          <input title="Body font size" aria-label="Body font size" type="number" inputMode="numeric" min="20" max="96" value={sizeDrafts.body} onChange={(event) => changeSize('body', 'fontSize', event.target.value, 20, 96)} onBlur={() => commitSize('body', 'fontSize', 20, 96, 30)} />
           <label className="editor-color-picker"><span>Body color</span><input title="Body text color" aria-label="Body text color" type="color" value={slide.textColor} onChange={(event) => update({ textColor: event.target.value })} /></label>
           <label className="editor-color-picker"><span>Highlight</span><input title="Highlight color" aria-label="Highlight color" type="color" value={slide.highlightColor} onChange={(event) => update({ highlightColor: event.target.value })} /></label>
         </div>
         <div className="editor-tool-group">
           <span className="editor-tool-label">Title</span>
-          <input title="Title font size" aria-label="Title font size" type="number" inputMode="numeric" min="24" max="120" value={sizeDrafts.title} onChange={(event) => changeSize('title', 'titleFontSize', event.target.value, 24, 120)} onBlur={() => commitSize('title', 'titleFontSize', 24, 120, 72)} />
+          <input title="Title font size" aria-label="Title font size" type="number" inputMode="numeric" min="24" max="120" value={sizeDrafts.title} onChange={(event) => changeSize('title', 'titleFontSize', event.target.value, 24, 120)} onBlur={() => commitSize('title', 'titleFontSize', 24, 120, 44)} />
           <select title="Title alignment" aria-label="Title alignment" value={slide.titleAlign || 'center'} onChange={(event) => update({ titleAlign: event.target.value as GeneralTextAlign })}>
             <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
           </select>
@@ -1523,7 +1504,7 @@ function GeneralSlideEditor({
         </div>
         <div className="editor-tool-group">
           <span className="editor-tool-label">Subtitle</span>
-          <input title="Subtitle font size" aria-label="Subtitle font size" type="number" inputMode="numeric" min="16" max="72" value={sizeDrafts.subtitle} onChange={(event) => changeSize('subtitle', 'subtitleFontSize', event.target.value, 16, 72)} onBlur={() => commitSize('subtitle', 'subtitleFontSize', 16, 72, 28)} />
+          <input title="Subtitle font size" aria-label="Subtitle font size" type="number" inputMode="numeric" min="16" max="72" value={sizeDrafts.subtitle} onChange={(event) => changeSize('subtitle', 'subtitleFontSize', event.target.value, 16, 72)} onBlur={() => commitSize('subtitle', 'subtitleFontSize', 16, 72, 22)} />
           <select title="Subtitle alignment" aria-label="Subtitle alignment" value={slide.subtitleAlign || 'center'} onChange={(event) => update({ subtitleAlign: event.target.value as GeneralTextAlign })}>
             <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
           </select>
@@ -1551,12 +1532,14 @@ function GeneralSlideEditor({
         {slide.showTitle !== false && <div className="general-editor-text-box general-editor-title-box" style={{ width: `${boxSizes.titleWidth}%`, minHeight: `${boxSizes.titleHeight}px`, transform: `translate(${dragOffsets.titleX}px, ${dragOffsets.titleY}px)` }}>
           <span className="general-editor-move-handle" title="Move title box" aria-label="Move title box" onPointerDown={(event) => beginDrag('title', event)}>Move</span>
           <div
-            className="general-editor-placeholder"
+            className={`general-editor-placeholder ${activePlaceholder === 'title' ? 'is-editing' : ''}`}
             contentEditable
             suppressContentEditableWarning
             data-placeholder="Click to add a title"
             onInput={(event) => update({ title: event.currentTarget.textContent || '' })}
-            style={{ color: slide.titleColor || slide.textColor, fontSize: `${slide.titleFontSize || 72}px`, textAlign: slide.titleAlign || 'center' }}
+            onFocus={() => setActivePlaceholder('title')}
+            onBlur={() => setActivePlaceholder(null)}
+            style={{ color: slide.titleColor || slide.textColor, fontSize: `${slide.titleFontSize || 44}px`, textAlign: slide.titleAlign || 'center' }}
             role="textbox"
             aria-label="Slide title"
           >{slide.title}</div>
@@ -1565,12 +1548,14 @@ function GeneralSlideEditor({
         {slide.showSubtitle !== false && <div className="general-editor-text-box general-editor-subtitle-box" style={{ width: `${boxSizes.subtitleWidth}%`, minHeight: `${boxSizes.subtitleHeight}px`, transform: `translate(${dragOffsets.subtitleX}px, ${dragOffsets.subtitleY}px)` }}>
           <span className="general-editor-move-handle" title="Move subtitle box" aria-label="Move subtitle box" onPointerDown={(event) => beginDrag('subtitle', event)}>Move</span>
           <div
-            className="general-editor-placeholder"
+            className={`general-editor-placeholder ${activePlaceholder === 'subtitle' ? 'is-editing' : ''}`}
             contentEditable
             suppressContentEditableWarning
             data-placeholder="Click to add a subtitle"
             onInput={(event) => update({ subtitle: event.currentTarget.textContent || '' })}
-            style={{ color: slide.subtitleColor || slide.textColor, fontSize: `${slide.subtitleFontSize || 28}px`, textAlign: slide.subtitleAlign || 'center' }}
+            onFocus={() => setActivePlaceholder('subtitle')}
+            onBlur={() => setActivePlaceholder(null)}
+            style={{ color: slide.subtitleColor || slide.textColor, fontSize: `${slide.subtitleFontSize || 22}px`, textAlign: slide.subtitleAlign || 'center' }}
             role="textbox"
             aria-label="Slide subtitle"
           >{slide.subtitle}</div>
@@ -1580,13 +1565,15 @@ function GeneralSlideEditor({
           <span className="general-editor-move-handle" title="Move body box" aria-label="Move body box" onPointerDown={(event) => beginDrag('body', event)}>Move</span>
           <div
             ref={editorRef}
-            className="general-editor-content"
+            className={`general-editor-content ${activePlaceholder === 'body' ? 'is-editing' : ''}`}
             contentEditable
             suppressContentEditableWarning
             onInput={(event) => {
               update({ bodyHtml: normalizeGeneralBodyHtml(event.currentTarget.innerHTML) });
               window.requestAnimationFrame(fitBodyToStage);
             }}
+            onFocus={() => setActivePlaceholder('body')}
+            onBlur={() => setActivePlaceholder(null)}
             onKeyDown={handleBodyKeyDown}
             onPaste={handleBodyPaste}
             data-placeholder="Click to add text"
@@ -2163,6 +2150,7 @@ function PresentationsPage() {
   const presenterRef = useRef<HTMLElement | null>(null);
   const audienceWindowRef = useRef<Window | null>(null);
   const projectionChannelRef = useRef<BroadcastChannel | null>(null);
+  const audienceReceiverReadyRef = useRef(false);
   const projectionStateRef = useRef<ProjectionState | null>(null);
   const selectedItem = songs[selectedIndex] || null;
   const slideSong = selectedItem?.type === 'song' ? selectedItem.song : null;
@@ -2226,16 +2214,24 @@ function PresentationsPage() {
       ? null
       : new BroadcastChannel('morija-presentation');
     projectionChannelRef.current = channel;
+    let readyTimer: number | undefined;
     const sendReady = () => {
-      if (isProjectionWindow) window.opener?.postMessage({ type: 'morija-projection-ready' }, window.location.origin);
+      if (!isProjectionWindow) return;
+      const message: ProjectionReadyMessage = { type: 'morija-projection-ready', audience: 'songs', fullscreen: Boolean(document.fullscreenElement) };
+      channel?.postMessage(message);
+      window.opener?.postMessage(message, window.location.origin);
     };
     const onMessage = (event: MessageEvent<ProjectionMessage>) => {
       if (event.origin && event.origin !== window.location.origin) return;
       const message = event.data;
       if (!message || typeof message !== 'object') return;
 
-      if (message.type === 'morija-projection-ready' && !isProjectionWindow) {
+      if (message.type === 'morija-projection-ready' && message.audience === 'songs' && !isProjectionWindow) {
+        audienceReceiverReadyRef.current = true;
         setAudienceWindowOpen(true);
+        setStatus(message.fullscreen
+          ? 'Song audience is ready in browser fullscreen.'
+          : 'Song audience is ready, but browser fullscreen was not granted. Use the browser fullscreen control or F11 if needed.');
         if (audienceWindowRef.current && !audienceWindowRef.current.closed) {
           void requestAudienceWindowFullscreen(audienceWindowRef.current);
         }
@@ -2245,6 +2241,7 @@ function PresentationsPage() {
 
       if (message.type === 'presentation-command') {
         if (message.command === 'audience-closed' && !isProjectionWindow) {
+          audienceReceiverReadyRef.current = false;
           audienceWindowRef.current = null;
           setAudienceWindowOpen(false);
           return;
@@ -2253,10 +2250,19 @@ function PresentationsPage() {
         if (message.command === 'end-projection') {
           if (isProjectionWindow) {
             setPointerMode('off');
-            void exitAppFullscreen().finally(() => {
-              if (audienceCloseMode(Boolean(window.opener)) === 'close-window') window.close();
-              else window.history.back();
-            });
+            const closeMode = audienceCloseMode(Boolean(window.opener));
+            if (closeMode === 'close-window') {
+              // This window was created by the presenter. Close it immediately so
+              // cancellation cannot leave a blank audience page on the projector.
+              window.close();
+            } else {
+              // An Edge --app window normally has no opener and may reject
+              // window.close(). Try it, then leave a clear local fallback.
+              window.close();
+              if (!window.closed) {
+                void exitAppFullscreen().finally(() => setProjectionEnded(true));
+              }
+            }
           } else {
             setPresenting(false);
             setAudienceWindowOpen(false);
@@ -2277,6 +2283,10 @@ function PresentationsPage() {
 
       if (message.type !== 'presentation-state' || !isProjectionWindow) return;
       const state = message;
+      if (readyTimer !== undefined) {
+        window.clearInterval(readyTimer);
+        readyTimer = undefined;
+      }
       setProjectionEnded(false);
       setProjectionItems(state.items);
       setSelectedIndex(state.selectedIndex);
@@ -2289,11 +2299,15 @@ function PresentationsPage() {
     };
     channel?.addEventListener('message', onMessage);
     window.addEventListener('message', onMessage);
+    if (isProjectionWindow) document.addEventListener('fullscreenchange', sendReady);
     sendReady();
+    if (isProjectionWindow) readyTimer = window.setInterval(sendReady, 1000);
     return () => {
+      if (readyTimer !== undefined) window.clearInterval(readyTimer);
       channel?.close();
       projectionChannelRef.current = null;
       window.removeEventListener('message', onMessage);
+      if (isProjectionWindow) document.removeEventListener('fullscreenchange', sendReady);
     };
   // The channel is intentionally created once per window.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2683,6 +2697,14 @@ function PresentationsPage() {
   }
 
   function openAudienceWindow(initialState?: ProjectionState) {
+    if (audienceReceiverReadyRef.current) {
+      setAudienceWindowOpen(true);
+      setPresenting(true);
+      sendProjectionState(initialState);
+      setStatus('Connected to the open audience window.');
+      return;
+    }
+
     const projectionUrl = `${window.location.origin}${window.location.pathname.startsWith('/app/') ? '/app/presentations/audience' : '/presentations/audience'}?projection=1`;
     setAudienceFallbackUrl(projectionUrl);
     const existing = audienceWindowRef.current;
@@ -2702,7 +2724,7 @@ function PresentationsPage() {
     setPresenting(true);
     audienceWindow.focus();
     void requestAudienceWindowFullscreen(audienceWindow);
-    setStatus('Audience screen opened in fullscreen presentation mode.');
+    setStatus('Audience screen opened. Browser fullscreen may require the audience window’s fullscreen control or F11.');
     moveAudienceWindowToPresentationDisplay(audienceWindow)
       .then((moved) => {
         if (moved) {
@@ -2797,7 +2819,6 @@ function PresentationsPage() {
             <p>Waiting for presenter</p>
           </div>
         )}
-        <ProjectionFullscreenPrompt />
       </section>
     );
   }
@@ -2976,6 +2997,12 @@ function PresentationsPage() {
                   onDrop={() => dropPresentationItem(index)}
                 >
                   <button className="presentation-song-main" onClick={() => setSelectedIndex(index)}>
+                    {item.type === 'text' && (
+                      <span className="presentation-slide-thumbnail" aria-hidden="true">
+                        <strong>{item.slide.title || 'Untitled'}</strong>
+                        <small>{item.slide.bodyHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || 'Empty body'}</small>
+                      </span>
+                    )}
                     <span className="slide-number">{index + 1}</span>
                     <span>
                       <strong>{item.type === 'song' ? '🎵 ' : '📄 '}{presentationItemTitle(item)}</strong>
@@ -3062,6 +3089,13 @@ function TextSlideProjectionView({ document: presentation, selectedSlideId, onSe
     window.document.documentElement.dataset.projection = 'on';
     const requestFullscreen = window.document.documentElement.requestFullscreen;
     if (requestFullscreen) void requestFullscreen.call(window.document.documentElement, { navigationUI: 'hide' }).catch(() => {});
+    const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('morija-text-presentation');
+    let readyTimer: number | undefined;
+    const sendReady = () => {
+      const message: TextProjectionMessage = { type: 'morija-text-projection-ready', audience: 'text-slides', fullscreen: Boolean(document.fullscreenElement) };
+      channel?.postMessage(message);
+      window.opener?.postMessage(message, window.location.origin);
+    };
     const syncActiveSlide = () => {
       const id = window.localStorage.getItem('text-slides:active-slide:v1');
       if (id && visibleSlides.some((item) => item.id === id)) onSelectSlide(id);
@@ -3070,8 +3104,14 @@ function TextSlideProjectionView({ document: presentation, selectedSlideId, onSe
       if (event.defaultPrevented || (event.target instanceof HTMLElement && event.target.closest('input,textarea,button,a,[contenteditable="true"]'))) return;
       if (event.key === 'Escape') {
         event.preventDefault();
+        const message: TextProjectionMessage = { type: 'presentation-command', command: 'end-projection' };
+        channel?.postMessage(message);
+        window.opener?.postMessage(message, window.location.origin);
         if (window.opener) window.close();
-        else window.history.back();
+        else {
+          window.close();
+          if (!window.closed) window.history.back();
+        }
         return;
       }
       const direction = event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ' ? 1
@@ -3091,18 +3131,43 @@ function TextSlideProjectionView({ document: presentation, selectedSlideId, onSe
     const handleWindowKey = (event: KeyboardEvent) => {
       handleProjectionKey(event);
     };
+    const handleProjectionCommand = (event: MessageEvent<TextProjectionMessage>) => {
+      if (event.origin && event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'presentation-command' || event.data.command !== 'end-projection') return;
+      if (window.opener) window.close();
+      else {
+        window.close();
+        if (!window.closed) window.history.back();
+      }
+    };
     window.addEventListener('storage', syncActiveSlide);
     window.addEventListener('keydown', handleWindowKey);
+    window.addEventListener('message', handleProjectionCommand);
+    channel?.addEventListener('message', handleProjectionCommand);
+    document.addEventListener('fullscreenchange', sendReady);
+    sendReady();
+    readyTimer = window.setInterval(sendReady, 1000);
+    const notifyClosed = () => {
+      const message: TextProjectionMessage = { type: 'morija-text-audience-closed', audience: 'text-slides' };
+      channel?.postMessage(message);
+      window.opener?.postMessage(message, window.location.origin);
+    };
+    window.addEventListener('pagehide', notifyClosed);
     return () => {
       window.removeEventListener('storage', syncActiveSlide);
       window.removeEventListener('keydown', handleWindowKey);
+      window.removeEventListener('message', handleProjectionCommand);
+      channel?.removeEventListener('message', handleProjectionCommand);
+      document.removeEventListener('fullscreenchange', sendReady);
+      window.removeEventListener('pagehide', notifyClosed);
+      if (readyTimer !== undefined) window.clearInterval(readyTimer);
+      channel?.close();
       window.document.documentElement.dataset.projection = 'off';
     };
   }, [visibleSlides, onSelectSlide]);
 
   return <main className="text-slide-audience-view" aria-label="Text slide audience view" tabIndex={0} autoFocus>
     {slide ? <GeneralSlideCanvas key={`${slide.id}:${slide.transition.type}`} slide={presentationSlideToTextSlide(slide, createGeneralSlide({ id: slide.id }))} projection /> : <div className="projection-empty-state">No slide selected.</div>}
-    <ProjectionFullscreenPrompt />
   </main>;
 }
 
@@ -3148,6 +3213,10 @@ function TextSlidesPage() {
   const [fitMode, setFitMode] = useState(false);
   const [printRequested, setPrintRequested] = useState(false);
   const [fileStatus, setFileStatus] = useState('');
+  const [textAudienceOpen, setTextAudienceOpen] = useState(false);
+  const textAudienceWindowRef = useRef<Window | null>(null);
+  const textAudienceReceiverReadyRef = useRef(false);
+  const textProjectionChannelRef = useRef<BroadcastChannel | null>(null);
   const [shapeInsertKind, setShapeInsertKind] = useState<ShapeKind | null>(null);
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
@@ -3530,12 +3599,79 @@ function TextSlidesPage() {
     const slideId = fromCurrent ? editor.selectedSlideId : editor.document.slides[0]?.id;
     if (slideId) editor.selectSlide(slideId);
     editor.save();
+    if (textAudienceReceiverReadyRef.current) {
+      setTextAudienceOpen(true);
+      setFileStatus('Connected to the open text-slide audience window.');
+      return;
+    }
     const audiencePath = window.location.pathname.startsWith('/app/') ? '/app/text-slides/audience' : '/text-slides/audience';
-    const audience = window.open(`${window.location.origin}${audiencePath}?projection=1`, 'morija-text-audience', 'popup=yes,width=1280,height=720');
-    if (audience) setFileStatus('Audience slideshow opened.');
-    else setFileStatus('The audience window was blocked. Allow pop-ups, or open the audience route manually.');
-    audience?.focus();
+    const existing = textAudienceWindowRef.current;
+    const audience = existing && !existing.closed
+      ? existing
+      : window.open(`${window.location.origin}${audiencePath}?projection=1`, 'morija-text-audience', audienceWindowFeatures());
+    if (!audience) {
+      textAudienceWindowRef.current = null;
+      setTextAudienceOpen(false);
+      setFileStatus('The audience window was blocked. Allow pop-ups, or open the audience route manually.');
+      return;
+    }
+    textAudienceWindowRef.current = audience;
+    setTextAudienceOpen(true);
+    setFileStatus('Audience slideshow opened. Browser fullscreen may require the audience window’s fullscreen control or F11.');
+    audience.focus();
+    void requestAudienceWindowFullscreen(audience);
+    window.setTimeout(() => void requestAudienceWindowFullscreen(audience), 250);
   }
+
+  function cancelTextSlideShow() {
+    const audience = textAudienceWindowRef.current;
+    const message: TextProjectionMessage = { type: 'presentation-command', command: 'end-projection' };
+    textProjectionChannelRef.current?.postMessage(message);
+    if (audience && !audience.closed) {
+      audience.postMessage(message, window.location.origin);
+      window.setTimeout(() => { if (!audience.closed) audience.close(); }, 150);
+    }
+    textAudienceWindowRef.current = null;
+    setTextAudienceOpen(false);
+    setFileStatus('Projection cancelled.');
+  }
+
+  useEffect(() => {
+    if (isProjectionWindow) return undefined;
+    const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('morija-text-presentation');
+    textProjectionChannelRef.current = channel;
+    const onMessage = (event: MessageEvent<TextProjectionMessage>) => {
+      if (event.origin && event.origin !== window.location.origin) return;
+      if (event.data?.type === 'morija-text-projection-ready' && event.data.audience === 'text-slides') {
+        textAudienceReceiverReadyRef.current = true;
+        setTextAudienceOpen(true);
+        setFileStatus(event.data.fullscreen
+          ? 'Text-slide audience is ready in browser fullscreen.'
+          : 'Text-slide audience is ready, but browser fullscreen was not granted. Use the browser fullscreen control or F11 if needed.');
+        const audience = textAudienceWindowRef.current;
+        if (audience && !audience.closed) void requestAudienceWindowFullscreen(audience);
+      } else if (event.data?.type === 'morija-text-audience-closed' && event.data.audience === 'text-slides') {
+        textAudienceReceiverReadyRef.current = false;
+        textAudienceWindowRef.current = null;
+        setTextAudienceOpen(false);
+      }
+    };
+    channel?.addEventListener('message', onMessage);
+    window.addEventListener('message', onMessage);
+    const intervalId = window.setInterval(() => {
+      if (textAudienceWindowRef.current && textAudienceWindowRef.current.closed) {
+        textAudienceWindowRef.current = null;
+        setTextAudienceOpen(false);
+      }
+    }, 800);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      channel?.removeEventListener('message', onMessage);
+      channel?.close();
+      textProjectionChannelRef.current = null;
+      window.clearInterval(intervalId);
+    };
+  }, [isProjectionWindow]);
 
   function updateSelectedShapes(updater: (shape: NonNullable<GeneralSlide['shapeObjects']>[number]) => NonNullable<GeneralSlide['shapeObjects']>[number]) {
     if (!selectedItem) return;
@@ -3688,6 +3824,8 @@ function TextSlidesPage() {
         onInsertChart={insertChart}
         onInsertDiagram={insertDiagram}
         onStartSlideShow={startTextSlideShow}
+        onCancelSlideShow={cancelTextSlideShow}
+        slideShowOpen={textAudienceOpen}
         viewMode={viewMode}
         onViewMode={setViewMode}
         slideBackground={editor.selectedSlide?.background.color || '#ffffff'}

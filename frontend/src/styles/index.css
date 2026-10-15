@@ -66,9 +66,14 @@
 .presentation-editor-shell .general-editor-text-box { position: relative; z-index: 30; }
 .presentation-editor-shell .general-editor-stage.shape-editing .general-editor-text-box,
 .presentation-editor-shell .general-editor-stage.shape-editing .general-editor-body-box { z-index: 10; pointer-events: none; }
-.shape-editor-overlay { position: absolute; inset: 0; z-index: 20; pointer-events: auto; }
+.shape-editor-overlay { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+.shape-editor-overlay .shape-object,
+.shape-editor-overlay .shape-group-object,
+.shape-editor-overlay .shape-handle,
+.shape-editor-overlay .shape-rotate-handle,
+.shape-editor-overlay .shape-context-menu { pointer-events: auto; }
 .shape-editor-overlay.inserting { cursor: crosshair; }
-.shape-editor-overlay.inserting { z-index: 60; }
+.shape-editor-overlay.inserting { z-index: 60; pointer-events: auto; }
 .shape-object { position: absolute; box-sizing: border-box; pointer-events: auto; cursor: move; transform-origin: center; }
 .shape-object.selected { outline: 2px solid #2563eb; outline-offset: 2px; }
 .shape-object.shape-rounded-rectangle { border-radius: 10px; }
@@ -2009,6 +2014,114 @@ h2 {
 
 .general-slide-layout-announcement {
   background-color: #fff6c7 !important;
+}
+
+/* Morija text-slide editor: compact, high-contrast editing surfaces. */
+.presentation-page {
+  --editor-purple: #5b21b6;
+  --editor-purple-dark: #24104f;
+  --editor-purple-soft: #f5f3ff;
+  --editor-border: #c4b5fd;
+}
+
+.presentation-page .presentation-list,
+.presentation-page .general-slide-editor,
+.presentation-page .presentation-browser {
+  border-color: #ddd6fe;
+  background: #ffffff;
+}
+
+.presentation-page .presentation-song-list { gap: 8px; }
+.presentation-page .presentation-song {
+  min-height: 58px;
+  padding: 6px 8px;
+  border-color: #ddd6fe;
+  border-radius: 10px;
+  background: #ffffff;
+}
+.presentation-page .presentation-song.active {
+  border-color: var(--editor-purple);
+  background: var(--editor-purple-soft);
+  box-shadow: 0 0 0 2px rgba(91, 33, 182, 0.14);
+}
+.presentation-page .presentation-song-main {
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 44px;
+}
+.presentation-page .presentation-song-main strong { color: var(--editor-purple-dark); }
+.presentation-page .presentation-song-main small { color: #5b6475; }
+.presentation-page .presentation-song-tools { opacity: 0.82; }
+.presentation-page .slide-number { width: 26px; height: 26px; background: var(--editor-purple); color: #ffffff; }
+.presentation-slide-thumbnail {
+  display: none;
+  aspect-ratio: 16 / 9;
+  width: 72px;
+  overflow: hidden;
+  align-content: center;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid #c4b5fd;
+  border-radius: 4px;
+  background: #faf9ff;
+  color: var(--editor-purple-dark);
+  font-size: 7px;
+  line-height: 1.15;
+}
+.presentation-slide-thumbnail strong,
+.presentation-slide-thumbnail small { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+.presentation-slide-thumbnail strong { -webkit-line-clamp: 2; font-size: 8px; }
+.presentation-slide-thumbnail small { -webkit-line-clamp: 3; color: #5b6475; }
+.presentation-item-text .presentation-song-main { grid-template-columns: 72px 26px minmax(0, 1fr); }
+.presentation-item-text .presentation-slide-thumbnail { display: grid; }
+
+.general-editor-stage {
+  justify-content: start;
+  gap: 12px;
+  padding: clamp(18px, 4.5%, 48px) clamp(20px, 5.5%, 72px);
+  border-color: #c4b5fd;
+  box-shadow: inset 0 0 0 1px rgba(91, 33, 182, 0.08), 0 8px 20px rgba(36, 16, 79, 0.08);
+}
+.general-editor-title-box { flex: 0 0 auto; min-height: 0 !important; }
+.general-editor-body-box { flex: 1 1 auto; min-height: 0; }
+.general-editor-placeholder,
+.general-editor-content { color: var(--editor-purple-dark); }
+.general-editor-placeholder:hover,
+.general-editor-placeholder:focus,
+.general-editor-placeholder.is-editing,
+.general-editor-content:hover,
+.general-editor-content:focus,
+.general-editor-content.is-editing {
+  border-color: var(--editor-purple);
+  background: rgba(245, 243, 255, 0.7);
+  box-shadow: 0 0 0 3px rgba(91, 33, 182, 0.18);
+}
+.general-editor-placeholder:empty::before,
+.general-editor-content:empty::before { color: #5b6475; opacity: 1; }
+.general-editor-stage .general-editor-content {
+  padding: 12px 14px;
+  font-size: var(--general-slide-font-size, 30px);
+  line-height: 1.35;
+  overflow: auto;
+  border: 1px dashed #c4b5fd;
+  border-radius: 8px;
+}
+.general-editor-title-box .general-editor-placeholder {
+  line-height: 1.1;
+  font-weight: 700;
+}
+.presentation-notes-panel {
+  background: #fafafa;
+  border-color: #d7dbe5;
+}
+.presentation-notes-panel textarea { color: #24104f; border-color: #cbd5e1; }
+
+@media (max-width: 900px) {
+  .presentation-builder { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'browser' 'list' 'editor'; }
+  .presentation-page .presentation-song-tools .icon-button { width: 24px; height: 24px; }
+  .presentation-slide-thumbnail { display: none !important; }
+  .presentation-item-text .presentation-song-main { grid-template-columns: 26px minmax(0, 1fr); }
+  .general-editor-stage { padding: 16px 20px; }
 }
 
 .general-slide-projection {
