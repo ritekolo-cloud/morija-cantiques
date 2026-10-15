@@ -279,7 +279,7 @@ export function isValidHyperlink(value: string) {
 }
 export function createPresentationSlide(layout: SlideLayout = 'title-and-content'): PresentationSlide {
   const now = Date.now();
-  return {
+  const slide: PresentationSlide = {
     id: createStableId('slide'),
     layout,
     background: { color: '#ffffff' },
@@ -290,6 +290,7 @@ export function createPresentationSlide(layout: SlideLayout = 'title-and-content
     animations: [],
     hidden: false,
   };
+  return applySlideLayoutToSlide(slide, layout);
 }
 
 export function createPresentationDocument(title = 'Presentation1'): PresentationDocument {
@@ -318,6 +319,43 @@ const slideLayoutVisibility: Record<SlideLayout, { title: boolean; subtitle: boo
   'content-with-caption': { title: true, subtitle: true, body: true },
   'picture-with-caption': { title: true, subtitle: true, body: true },
 };
+
+type PlaceholderKind = 'title' | 'subtitle' | 'body';
+type PlaceholderPreset = { x: number; y: number; width: number; height: number; align: TextAlign; fontSize: number; color: string };
+
+export function slideLayoutPlaceholderPreset(layout: SlideLayout, kind: PlaceholderKind): PlaceholderPreset | null {
+  const title: PlaceholderPreset = layout === 'title-slide'
+    ? { x: 160, y: 120, width: 960, height: 130, align: 'center', fontSize: 44, color: '#24104f' }
+    : { x: 64, y: 48, width: 1152, height: 100, align: 'left', fontSize: 44, color: '#24104f' };
+  const subtitle: PlaceholderPreset = { x: 220, y: 300, width: 840, height: 72, align: 'center', fontSize: 22, color: '#4c4473' };
+  const body: PlaceholderPreset = { x: 80, y: 180, width: 1120, height: 450, align: 'left', fontSize: 30, color: '#24104f' };
+  if (!slideLayoutVisibility[layout][kind]) return null;
+  return kind === 'title' ? title : kind === 'subtitle' ? subtitle : body;
+}
+
+function createPlaceholderTextObject(slide: PresentationSlide, layout: SlideLayout, kind: PlaceholderKind): TextObject | null {
+  const preset = slideLayoutPlaceholderPreset(layout, kind);
+  if (!preset) return null;
+  const fontFamily = kind === 'title' || kind === 'subtitle' ? 'Georgia, serif' : 'Arial, sans-serif';
+  return textObject(createStableId(kind), '', { x: preset.x, y: preset.y, width: preset.width, height: preset.height, rotation: 0, zIndex: kind === 'body' ? 1 : 2 }, { fontFamily, fontSize: preset.fontSize, color: preset.color, textAlign: preset.align, fontWeight: kind === 'title' ? 700 : 400 }, { kind, prompt: kind === 'title' ? 'Click to add a title' : kind === 'subtitle' ? 'Click to add a subtitle' : 'Click to add text' });
+}
+
+export function applySlideLayoutToSlide(slide: PresentationSlide, layout: SlideLayout): PresentationSlide {
+  const next: PresentationSlide = { ...slide, layout, objects: [...slide.objects] };
+  (['title', 'subtitle', 'body'] as PlaceholderKind[]).forEach((kind) => {
+    const preset = slideLayoutPlaceholderPreset(layout, kind);
+    const index = next.objects.findIndex((object) => object.type === 'text' && object.placeholder?.kind === kind);
+    if (index < 0) {
+      const created = createPlaceholderTextObject(next, layout, kind);
+      if (created) next.objects.push(created);
+      return;
+    }
+    if (!preset) return;
+    const object = next.objects[index] as TextObject;
+    next.objects[index] = { ...object, geometry: { ...object.geometry, x: preset.x, y: preset.y, width: preset.width, height: preset.height }, style: { ...object.style, textAlign: preset.align } };
+  });
+  return next;
+}
 export function textSlideToPresentationSlide(source: TextSlideSource): PresentationSlide {
   const presentationLayout = source.presentationLayout || (source.layout === 'title-body' ? 'title-and-content' : 'title-only');
   const slide = createPresentationSlide(presentationLayout);
@@ -348,9 +386,19 @@ export function textSlideToPresentationSlide(source: TextSlideSource): Presentat
     return next;
   }));
   slide.animations = JSON.parse(JSON.stringify(source.animations || (source.animationObjectIds || []).map((objectId, index) => ({ id: createStableId('animation'), objectId, type: 'fade' as const, order: index, durationMs: 420, delayMs: 0 }))));
-  if (source.showTitle !== false || source.title || source.objectIds?.title) slide.objects.push(textObject(source.objectIds?.title || createStableId('title'), source.title, { x: 64 + source.titleOffsetX, y: 48 + source.titleOffsetY, width: source.titleWidth, height: source.titleHeight, rotation: 0, zIndex: 2 }, { fontFamily: source.fontFamily, fontSize: source.titleFontSize, color: source.titleColor, textAlign: source.titleAlign, fontWeight: 700 }, { kind: 'title', prompt: 'Click to add a title' }));
-  if (source.showSubtitle !== false || source.subtitle || source.objectIds?.subtitle) slide.objects.push(textObject(source.objectIds?.subtitle || createStableId('subtitle'), source.subtitle, { x: 128 + source.subtitleOffsetX, y: 190 + source.subtitleOffsetY, width: source.subtitleWidth, height: source.subtitleHeight, rotation: 0, zIndex: 2 }, { fontFamily: source.fontFamily, fontSize: source.subtitleFontSize, color: source.subtitleColor, textAlign: source.subtitleAlign }, { kind: 'subtitle', prompt: 'Click to add a subtitle' }));
-  if (source.showBody !== false || source.bodyHtml || source.objectIds?.body) slide.objects.push(textObject(source.objectIds?.body || createStableId('body'), source.bodyHtml.replace(/<[^>]+>/g, ' '), { x: 64 + source.bodyOffsetX, y: 260 + source.bodyOffsetY, width: source.bodyWidth, height: source.bodyHeight, rotation: 0, zIndex: 1 }, { fontFamily: source.fontFamily, fontSize: source.fontSize, color: source.textColor, textAlign: source.bodyAlign }, { kind: 'body', prompt: 'Click to add text' }, source.bodyHtml));
+  slide.objects = slide.objects.filter((object) => !(object.type === 'text' && object.placeholder));
+  const addPlaceholder = (kind: PlaceholderKind, include: boolean, text: string, html?: string) => {
+    if (!include) return;
+    const preset = slideLayoutPlaceholderPreset(presentationLayout, kind) || (kind === 'title'
+      ? { x: 64 + source.titleOffsetX, y: 48 + source.titleOffsetY, width: source.titleWidth, height: source.titleHeight, align: source.titleAlign, fontSize: source.titleFontSize, color: source.titleColor }
+      : kind === 'subtitle'
+        ? { x: 128 + source.subtitleOffsetX, y: 190 + source.subtitleOffsetY, width: source.subtitleWidth, height: source.subtitleHeight, align: source.subtitleAlign, fontSize: source.subtitleFontSize, color: source.subtitleColor }
+        : { x: 64 + source.bodyOffsetX, y: 260 + source.bodyOffsetY, width: source.bodyWidth, height: source.bodyHeight, align: source.bodyAlign, fontSize: source.fontSize, color: source.textColor });
+    slide.objects.push(textObject(source.objectIds?.[kind] || createStableId(kind), text, { x: preset.x, y: preset.y, width: preset.width, height: preset.height, rotation: 0, zIndex: kind === 'body' ? 1 : 2 }, { fontFamily: source.fontFamily, fontSize: kind === 'title' ? source.titleFontSize : kind === 'subtitle' ? source.subtitleFontSize : source.fontSize, color: kind === 'title' ? source.titleColor : kind === 'subtitle' ? source.subtitleColor : source.textColor, textAlign: preset.align, fontWeight: kind === 'title' ? 700 : 400 }, { kind, prompt: kind === 'title' ? 'Click to add a title' : kind === 'subtitle' ? 'Click to add a subtitle' : 'Click to add text' }, html));
+  };
+  addPlaceholder('title', slideLayoutVisibility[presentationLayout].title || Boolean(source.title) || Boolean(source.objectIds?.title), source.title);
+  addPlaceholder('subtitle', slideLayoutVisibility[presentationLayout].subtitle || Boolean(source.subtitle) || Boolean(source.objectIds?.subtitle), source.subtitle);
+  addPlaceholder('body', slideLayoutVisibility[presentationLayout].body || Boolean(source.bodyHtml) || Boolean(source.objectIds?.body), source.bodyHtml.replace(/<[^>]+>/g, ' '), source.bodyHtml);
   return slide;
 }
 
@@ -369,6 +417,9 @@ export function presentationSlideToTextSlide(slide: PresentationSlide, fallback:
   const audioObjects = slide.objects.filter((object): object is AudioObject => object.type === 'audio');
   const videoObjects = slide.objects.filter((object): object is VideoObject => object.type === 'video');
   const visibility = slideLayoutVisibility[slide.layout];
+  const titleGeometry = title?.geometry || { x: 64, y: 48, width: 1152, height: 100 };
+  const subtitleGeometry = subtitle?.geometry || { x: 128, y: 190, width: 922, height: 54 };
+  const bodyGeometry = body?.geometry || { x: 64, y: 260, width: 1152, height: 260 };
   return {
     ...fallback,
     layout: slide.layout === 'title-and-content' || slide.layout === 'two-content' || slide.layout === 'comparison' || slide.layout === 'content-with-caption' || slide.layout === 'picture-with-caption' ? 'title-body' : slide.layout === 'title-only' || slide.layout === 'section-header' ? 'title-only' : 'full-text',
@@ -384,6 +435,18 @@ export function presentationSlideToTextSlide(slide: PresentationSlide, fallback:
     showTitle: Boolean(title) && visibility.title,
     showSubtitle: Boolean(subtitle) && visibility.subtitle,
     showBody: Boolean(body) && visibility.body,
+    titleOffsetX: titleGeometry.x - 64,
+    titleOffsetY: titleGeometry.y - 48,
+    subtitleOffsetX: subtitleGeometry.x - 128,
+    subtitleOffsetY: subtitleGeometry.y - 190,
+    bodyOffsetX: bodyGeometry.x - 64,
+    bodyOffsetY: bodyGeometry.y - 260,
+    titleWidth: titleGeometry.width / 1280 * 100,
+    titleHeight: titleGeometry.height,
+    subtitleWidth: subtitleGeometry.width / 1280 * 100,
+    subtitleHeight: subtitleGeometry.height,
+    bodyWidth: bodyGeometry.width / 1280 * 100,
+    bodyHeight: bodyGeometry.height,
     objectIds: { title: title?.id, subtitle: subtitle?.id, body: body?.id },
     shapeObjects: JSON.parse(JSON.stringify(shapeObjects)) as ShapeObject[],
     groupObjects: JSON.parse(JSON.stringify(groupObjects)) as GroupObject[],

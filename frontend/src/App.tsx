@@ -67,7 +67,7 @@ import { MediaSlideObjects } from './MediaSlideObjects';
 import { MEDIA_MAX_BYTES, savePresentationAsset, supportedMediaType } from './presentationAssets';
 import { exportPresentationToPptx, getPptxExportLimitations, importPptx } from './pptxInterop';
 import { usePresentationDocument } from './presentationStore';
-import { createStableId, fitPresentationZoomPercent, isValidHyperlink, presentationSlideToTextSlide, serializePresentationDocument, type AudioObject, type VideoObject, type DrawingObject, type PresentationDocument, type SlideAnimation, type SlideComment, type SlideLayout, type SupportedTransitionType } from './presentationModel';
+import { applySlideLayoutToSlide, createStableId, fitPresentationZoomPercent, isValidHyperlink, presentationSlideToTextSlide, serializePresentationDocument, type AudioObject, type VideoObject, type DrawingObject, type PresentationDocument, type SlideAnimation, type SlideComment, type SlideLayout, type SupportedTransitionType } from './presentationModel';
 import { deleteSlide, deleteSlides, duplicateSlide, getVisibleSlideId, insertSlide, nextSlideSelection, reorderSlides, updateSlide } from './presentationCommands';
 import { ShapeEditorOverlay, type ShapeKind } from './ShapeEditorOverlay';
 import { ImageEditorOverlay } from './ImageEditorOverlay';
@@ -1506,13 +1506,11 @@ function GeneralSlideEditor({
           <h2>Edit slide</h2>
           <p className="general-editor-help">Type directly in the slide. Drag the visible Move handles to reposition a title, subtitle, or text area.</p>
         </div>
-        <select value={slide.layout} aria-label="Slide layout" onChange={(event) => update({ layout: event.target.value as GeneralSlideLayout })}>
-          <option value="title-body">Title + body</option>
-          <option value="title-only">Title only</option>
-          <option value="full-text">Full-screen text</option>
-          <option value="scripture">Scripture</option>
-          <option value="quote">Quote / message</option>
-          <option value="announcement">Announcement</option>
+        <select value={slide.presentationLayout || (slide.layout === 'title-body' ? 'title-and-content' : slide.layout === 'title-only' ? 'title-only' : 'blank')} aria-label="Slide layout" onChange={(event) => { const layout = event.target.value as SlideLayout; update({ presentationLayout: layout, layout: layout === 'title-slide' || layout === 'title-and-content' ? 'title-body' : layout === 'title-only' ? 'title-only' : 'full-text' }); }}>
+          <option value="title-slide">Title Slide</option>
+          <option value="title-and-content">Title and Content</option>
+          <option value="title-only">Title Only</option>
+          <option value="blank">Blank</option>
         </select>
       </div>
       <div className="general-editor-fields">
@@ -3631,10 +3629,7 @@ function TextSlidesPage() {
 
   function setSlideLayout(layout: SlideLayout) {
     if (!editor.selectedSlideId) return;
-    editor.updateDocument((current) => ({
-      ...current,
-      slides: current.slides.map((slide) => slide.id === editor.selectedSlideId ? { ...slide, layout } : slide),
-    }));
+    editor.updateDocument((current) => ({ ...current, slides: current.slides.map((slide) => slide.id === editor.selectedSlideId ? applySlideLayoutToSlide(slide, layout) : slide) }));
   }
 
   function setSlideTransition(type: SupportedTransitionType) {

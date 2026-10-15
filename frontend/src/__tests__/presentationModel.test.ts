@@ -20,6 +20,7 @@ import {
 } from '../presentationModel';
 import { resolveSelectedSlideId } from '../presentationStore';
 import { deleteSlides, duplicateSlide, nextSlideSelection, reorderSlides } from '../presentationCommands';
+import { applySlideLayoutToSlide, slideLayoutPlaceholderPreset } from '../presentationModel';
 
 const geometry = (x: number, y: number, zIndex: number) => ({ x, y, width: 120, height: 60, rotation: 0, zIndex });
 
@@ -100,6 +101,37 @@ function source(): TextSlideSource {
 }
 
 describe('presentation model', () => {
+  it('creates all four professional layouts with the correct editable placeholders', () => {
+    const cases = [
+      ['title-slide', ['title', 'subtitle']],
+      ['title-and-content', ['title', 'body']],
+      ['title-only', ['title']],
+      ['blank', []],
+    ] as const;
+    for (const [layout, kinds] of cases) {
+      const slide = textSlideToPresentationSlide({ ...source(), title: '', subtitle: '', bodyHtml: '', presentationLayout: layout });
+      expect(slide.layout).toBe(layout);
+      expect(slide.objects.filter((object) => object.type === 'text' && object.placeholder).map((object) => object.type === 'text' && object.placeholder?.kind)).toEqual(kinds);
+    }
+  });
+
+  it('applies a layout to one slide without discarding authored content', () => {
+    const slide = textSlideToPresentationSlide(source());
+    const body = slide.objects.find((object) => object.type === 'text' && object.placeholder?.kind === 'body');
+    const updated = applySlideLayoutToSlide(slide, 'title-slide');
+    expect(updated.layout).toBe('title-slide');
+    expect(updated.objects.find((object) => object.type === 'text' && object.placeholder?.kind === 'body')).toMatchObject({ text: body && body.type === 'text' ? body.text : '' });
+    expect(updated.objects.find((object) => object.type === 'text' && object.placeholder?.kind === 'title')?.geometry).toMatchObject({ x: 160, y: 120, width: 960, height: 130 });
+    expect(updated.objects.find((object) => object.type === 'text' && object.placeholder?.kind === 'subtitle')).toBeTruthy();
+  });
+
+  it('defines presentation-sized geometry for each visible placeholder', () => {
+    expect(slideLayoutPlaceholderPreset('title-slide', 'title')).toMatchObject({ x: 160, y: 120, width: 960, height: 130, align: 'center' });
+    expect(slideLayoutPlaceholderPreset('title-and-content', 'body')).toMatchObject({ x: 80, y: 180, width: 1120, height: 450 });
+    expect(slideLayoutPlaceholderPreset('title-only', 'body')).toBeNull();
+    expect(slideLayoutPlaceholderPreset('blank', 'title')).toBeNull();
+  });
+
   it('resolves persisted active slides and safely falls back when the id is invalid', () => {
     const document = createPresentationDocument();
     const second = createPresentationSlide();
