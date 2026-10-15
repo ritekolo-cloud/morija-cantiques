@@ -113,7 +113,7 @@ export function PresentationEditorShell({ title, saveState, canUndo, canRedo, on
       <nav className="presentation-ribbon-tabs" aria-label="Ribbon tabs">
         {presentationRibbonTabs.map((tab) => <button key={tab} type="button" className={isPresentationRibbonTabActive(activeTab, tab) ? 'active' : ''} title={`${tab} tab`} onClick={() => setActiveTab(tab)}>{tab}</button>)}
       </nav>
-      <div className="presentation-ribbon" aria-label="Home ribbon">
+      <div className="presentation-ribbon" aria-label={`${activeTab} ribbon`}>
         {activeTab === 'Insert' && <>
           <RibbonGroup label="Text"><RibbonButton label="Text Box" onClick={onTextInsert} /></RibbonGroup>
           <RibbonGroup label="Shapes"><select className="presentation-ribbon-select" aria-label="Insert shape" value={shapeInsertKind || ''} onChange={(event) => onShapeInsert((event.target.value || null) as ShapeKind | null)}><option value="">Shapes</option><option value="rectangle">Rectangle</option><option value="rounded-rectangle">Rounded Rectangle</option><option value="ellipse">Ellipse</option><option value="triangle">Triangle</option><option value="diamond">Diamond</option><option value="line">Line</option><option value="arrow">Arrow</option><option value="star">Star</option><option value="heart">Heart</option><option value="chevron">Chevron</option><option value="callout">Callout</option></select></RibbonGroup>
