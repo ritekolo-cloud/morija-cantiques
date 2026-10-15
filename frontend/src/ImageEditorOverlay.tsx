@@ -122,7 +122,7 @@ export function ImageEditorOverlay({ images, selectedIds = [], onChange, onSelec
   useEffect(() => {
     function keydown(event: KeyboardEvent) {
       const target = event.target as HTMLElement;
-      if (!selectedIds.length || target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)) return;
+      if (!selectedIds.length || target?.isContentEditable || target?.closest('[contenteditable="true"]') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)) return;
       if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); onChange(images.filter((image) => !selectedIds.includes(image.id))); onSelectionChange([]); }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') { event.preventDefault(); duplicate(selectedIds[0]); }
       const step = event.shiftKey ? 10 : 2;

@@ -2,7 +2,7 @@ import type { TextParagraph, TextRun } from './presentationModel';
 import type { TextObject } from './presentationModel';
 
 export function sameRunStyle(a: TextRun, b: TextRun) {
-  return a.fontFamily === b.fontFamily && a.fontSize === b.fontSize && a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.color === b.color;
+  return a.fontFamily === b.fontFamily && a.fontSize === b.fontSize && a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.color === b.color && a.backgroundColor === b.backgroundColor;
 }
 export function normalizeRuns(runs: TextRun[]): TextRun[] {
   const result: TextRun[] = [];
@@ -61,9 +61,27 @@ export function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-export function runsToEditableHtml(runs: TextRun[]) {
+export function runsToEditableHtml(runs: TextRun[], paragraphs: TextParagraph[] = []) {
+  const lines: TextRun[][] = [[]];
+  normalizeRuns(runs).forEach((run) => {
+    const parts = run.text.split('\n');
+    parts.forEach((part, index) => {
+      if (part) lines.at(-1)?.push({ ...run, text: part });
+      if (index < parts.length - 1) lines.push([]);
+    });
+  });
+  return lines.map((line, index) => {
+    const content = runsToInlineHtml(line);
+    const paragraph = paragraphs[index] || {};
+    const breakTag = index < lines.length - 1 ? '<br data-paragraph-break="true">' : '';
+    const number = paragraph.bullet === 'number' ? index + 1 : '';
+    return `<div class="text-editor-paragraph" data-bullet="${paragraph.bullet || ''}" data-bullet-number="${number}" data-indent="${paragraph.indent || 0}">${content}${breakTag}</div>`;
+  }).join('');
+}
+
+function runsToInlineHtml(runs: TextRun[]) {
   return normalizeRuns(runs).map((run) => {
-    const styles = [run.fontFamily ? `font-family:${run.fontFamily}` : '', run.fontSize ? `font-size:${run.fontSize}px` : '', run.color ? `color:${run.color}` : ''].filter(Boolean).join(';');
+    const styles = [run.fontFamily ? `font-family:${run.fontFamily}` : '', run.fontSize ? `font-size:${run.fontSize}px` : '', run.color ? `color:${run.color}` : '', run.backgroundColor ? `background-color:${run.backgroundColor}` : ''].filter(Boolean).join(';');
     let value = escapeHtml(run.text).replace(/\n/g, '<br>');
     if (styles) value = `<span style="${styles}">${value}</span>`;
     if (run.bold) value = `<strong>${value}</strong>`;
@@ -84,10 +102,12 @@ export function runsToSlideHtml(runs: TextRun[], paragraphs: TextParagraph[] = [
     });
   });
   return lines.map((line, index) => {
-    const content = runsToEditableHtml(line);
-    const bullet = paragraphs[index]?.bullet ? '<span class="text-bullet">• </span>' : '';
-    return `${bullet}${content}`;
-  }).join('<br>');
+    const content = runsToInlineHtml(line);
+    const paragraph = paragraphs[index] || {};
+    const marker = paragraph.bullet === 'number' ? `<span class="text-bullet" aria-hidden="true">${index + 1}. </span>` : paragraph.bullet === 'bullet' ? '<span class="text-bullet" aria-hidden="true">• </span>' : '';
+    const style = `text-align:${paragraph.alignment || 'left'};line-height:${paragraph.lineSpacing || 1.15};margin-left:${Math.max(0, paragraph.indent || 0) * 1.2}em;margin-bottom:${paragraph.paragraphSpacing || 0}em`;
+    return `<div class="text-slide-paragraph" style="${style}">${marker}${content}</div>`;
+  }).join('');
 }
 
 export function effectiveTextFontSize(object: Pick<TextObject, 'text' | 'style' | 'geometry' | 'autofit'>) {

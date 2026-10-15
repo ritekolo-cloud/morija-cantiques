@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitPresentationText } from '../textModel';
+import { fitPresentationText, runsToEditableHtml, runsToSlideHtml } from '../textModel';
 
 describe('presentation text fitting', () => {
   it('chooses the largest size that fits and returns to the preferred size when content is removed', () => {
@@ -10,5 +10,16 @@ describe('presentation text fitting', () => {
 
   it('signals overflow when even the readable minimum cannot fit', () => {
     expect(fitPresentationText({ preferredSize: 40, minimumSize: 18, availableHeight: 100, measureHeight: (size) => size * 10 })).toEqual({ fontSize: 18, overflow: true });
+  });
+
+  it('renders bullet and numbered paragraph metadata without adding marker text to editable content', () => {
+    const runs = [{ text: 'First\nSecond', color: '#24104f', backgroundColor: '#ddd6fe' }];
+    const paragraphs = [{ bullet: 'bullet' as const, indent: 1 }, { bullet: 'number' as const }];
+    const editable = runsToEditableHtml(runs, paragraphs);
+    const audience = runsToSlideHtml(runs, paragraphs);
+    expect(editable).toContain('data-bullet="bullet"');
+    expect(editable).toContain('background-color:#ddd6fe');
+    expect(audience).toContain('•');
+    expect(audience).toContain('2.');
   });
 });

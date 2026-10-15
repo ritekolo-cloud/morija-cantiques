@@ -23,6 +23,7 @@ export type TextRun = {
   italic?: boolean;
   underline?: boolean;
   color?: string;
+  backgroundColor?: string;
   link?: string;
 };
 

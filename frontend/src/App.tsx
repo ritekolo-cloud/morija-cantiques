@@ -1101,7 +1101,7 @@ function GeneralSlideCanvas({
       } as React.CSSProperties}
     >
       {slide.reference && <p className="general-slide-reference">{slide.reference}</p>}
-      {[...(slide.shapeObjects || []).map((item) => ({ kind: 'shape' as const, item })), ...(slide.imageObjects || []).map((item) => ({ kind: 'image' as const, item })), ...(slide.textObjects || []).map((item) => ({ kind: 'text' as const, item }))].sort((a, b) => a.item.geometry.zIndex - b.item.geometry.zIndex).map(({ kind, item }) => { const animation = projection ? slide.animations?.find((candidate) => candidate.objectId === item.id) : undefined; const className = animation ? ` general-slide-animated general-slide-animation-${animation.type}` : ''; const animationStyle = animation ? { '--animation-duration': `${Math.max(0, animation.durationMs)}ms`, '--animation-delay': `${Math.max(0, animation.delayMs)}ms`, '--animation-direction': animation.direction || 'left' } as React.CSSProperties : undefined; return kind === 'shape' ? <div key={item.id} className={`general-slide-shape general-slide-shape-${item.style.shape}${className}`} style={{ left: `${item.geometry.x / 1280 * 100}%`, top: `${item.geometry.y / 720 * 100}%`, width: `${item.geometry.width / 1280 * 100}%`, height: `${item.geometry.height / 720 * 100}%`, transform: `rotate(${item.geometry.rotation}deg)`, zIndex: item.geometry.zIndex, background: item.style.backgroundColor === 'transparent' ? 'transparent' : item.style.backgroundColor, border: `${item.style.outlineWidth ?? 2}px solid ${item.style.outlineColor || '#1e3a8a'}`, opacity: item.style.opacity ?? 1, ...animationStyle } as React.CSSProperties} /> : kind === 'image' ? <img key={item.id} className={`general-slide-image${className}`} src={item.src} alt={item.alt} style={{ left: `${item.geometry.x / 1280 * 100}%`, top: `${item.geometry.y / 720 * 100}%`, width: `${item.geometry.width / 1280 * 100}%`, height: `${item.geometry.height / 720 * 100}%`, transform: `rotate(${item.geometry.rotation}deg) scale(${item.flipHorizontal ? -1 : 1}, ${item.flipVertical ? -1 : 1})`, zIndex: item.geometry.zIndex, opacity: item.style.opacity ?? 1, ...animationStyle }} /> : <div key={item.id} className={`general-slide-text${className}`} style={{ left: `${item.geometry.x / 1280 * 100}%`, top: `${item.geometry.y / 720 * 100}%`, width: `${item.geometry.width / 1280 * 100}%`, height: `${item.geometry.height / 720 * 100}%`, transform: `rotate(${item.geometry.rotation}deg)`, zIndex: item.geometry.zIndex, fontFamily: item.style.fontFamily, fontSize: `${effectiveTextFontSize(item)}px`, color: item.style.color, textAlign: item.style.textAlign || 'left', fontWeight: item.style.fontWeight, fontStyle: item.style.fontStyle, textDecoration: item.style.textDecoration, opacity: item.style.opacity ?? 1, ...animationStyle, padding: `${item.margins?.top ?? 10}px ${item.margins?.right ?? 12}px ${item.margins?.bottom ?? 10}px ${item.margins?.left ?? 12}px`, display: 'flex', alignItems: item.verticalAlign === 'middle' ? 'center' : item.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start' }} dangerouslySetInnerHTML={{ __html: runsToSlideHtml(item.runs || [{ text: item.text }], item.paragraphs) }} />; })}
+      {[...(slide.shapeObjects || []).map((item) => ({ kind: 'shape' as const, item })), ...(slide.imageObjects || []).map((item) => ({ kind: 'image' as const, item })), ...(slide.textObjects || []).map((item) => ({ kind: 'text' as const, item }))].sort((a, b) => a.item.geometry.zIndex - b.item.geometry.zIndex).map(({ kind, item }) => { const animation = projection ? slide.animations?.find((candidate) => candidate.objectId === item.id) : undefined; const className = animation ? ` general-slide-animated general-slide-animation-${animation.type}` : ''; const animationStyle = animation ? { '--animation-duration': `${Math.max(0, animation.durationMs)}ms`, '--animation-delay': `${Math.max(0, animation.delayMs)}ms`, '--animation-direction': animation.direction || 'left' } as React.CSSProperties : undefined; return kind === 'shape' ? <div key={item.id} className={`general-slide-shape general-slide-shape-${item.style.shape}${className}`} style={{ left: `${item.geometry.x / 1280 * 100}%`, top: `${item.geometry.y / 720 * 100}%`, width: `${item.geometry.width / 1280 * 100}%`, height: `${item.geometry.height / 720 * 100}%`, transform: `rotate(${item.geometry.rotation}deg)`, zIndex: item.geometry.zIndex, background: item.style.backgroundColor === 'transparent' ? 'transparent' : item.style.backgroundColor, border: `${item.style.outlineWidth ?? 2}px solid ${item.style.outlineColor || '#1e3a8a'}`, opacity: item.style.opacity ?? 1, ...animationStyle } as React.CSSProperties} /> : kind === 'image' ? <img key={item.id} className={`general-slide-image${className}`} src={item.src} alt={item.alt} style={{ left: `${item.geometry.x / 1280 * 100}%`, top: `${item.geometry.y / 720 * 100}%`, width: `${item.geometry.width / 1280 * 100}%`, height: `${item.geometry.height / 720 * 100}%`, transform: `rotate(${item.geometry.rotation}deg) scale(${item.flipHorizontal ? -1 : 1}, ${item.flipVertical ? -1 : 1})`, zIndex: item.geometry.zIndex, opacity: item.style.opacity ?? 1, ...animationStyle }} /> : <div key={item.id} className={`general-slide-text${className}`} style={{ left: `${item.geometry.x / 1280 * 100}%`, top: `${item.geometry.y / 720 * 100}%`, width: `${item.geometry.width / 1280 * 100}%`, height: `${item.geometry.height / 720 * 100}%`, transform: `rotate(${item.geometry.rotation}deg)`, zIndex: item.geometry.zIndex, fontFamily: item.style.fontFamily, fontSize: `${effectiveTextFontSize(item)}px`, color: item.style.color, backgroundColor: item.style.backgroundColor || 'transparent', textAlign: item.style.textAlign || 'left', fontWeight: item.style.fontWeight, fontStyle: item.style.fontStyle, textDecoration: item.style.textDecoration, opacity: item.style.opacity ?? 1, ...animationStyle, padding: `${item.margins?.top ?? 10}px ${item.margins?.right ?? 12}px ${item.margins?.bottom ?? 10}px ${item.margins?.left ?? 12}px`, display: 'flex', alignItems: item.verticalAlign === 'middle' ? 'center' : item.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start' }} dangerouslySetInnerHTML={{ __html: runsToSlideHtml(item.runs || [{ text: item.text }], item.paragraphs) }} />; })}
       <svg className="general-slide-drawings" viewBox="0 0 1280 720" aria-hidden="true">{(slide.drawingObjects || []).map((drawing) => <polyline key={drawing.id} points={drawing.points.map((point) => `${point.x},${point.y}`).join(' ')} fill="none" stroke={drawing.style.color} strokeWidth={drawing.style.width} strokeLinecap="round" strokeLinejoin="round" opacity={drawing.style.opacity ?? 1} />)}</svg>
       <MediaSlideObjects audio={slide.audioObjects} video={slide.videoObjects} editable={false} />
       <AdvancedSlideObjects table={slide.tableObjects} chart={slide.chartObjects} diagram={slide.diagramObjects} readonly={projection || !onChange} onTableChange={(tableObjects) => onChange?.({ ...slide, tableObjects })} onChartChange={(chartObjects) => onChange?.({ ...slide, chartObjects })} onDiagramChange={(diagramObjects) => onChange?.({ ...slide, diagramObjects })} />
@@ -1364,6 +1364,17 @@ function GeneralSlideEditor({
     update({ bodyHtml: normalizeGeneralBodyHtml(editorRef.current?.innerHTML || '') });
   }
 
+  function selectAllEditable(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(event.currentTarget);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }
+
   function finishDrag() {
     const drag = dragRef.current;
     if (!drag) return;
@@ -1559,6 +1570,7 @@ function GeneralSlideEditor({
             suppressContentEditableWarning
             data-placeholder="Click to add a title"
             onInput={(event) => update({ title: event.currentTarget.textContent || '' })}
+            onKeyDown={selectAllEditable}
             onFocus={() => setActivePlaceholder('title')}
             onBlur={() => setActivePlaceholder(null)}
             style={{ color: slide.titleColor || slide.textColor, fontSize: `${fitSizes.title}px`, textAlign: slide.titleAlign || 'center' }}
@@ -1577,6 +1589,7 @@ function GeneralSlideEditor({
             suppressContentEditableWarning
             data-placeholder="Click to add a subtitle"
             onInput={(event) => update({ subtitle: event.currentTarget.textContent || '' })}
+            onKeyDown={selectAllEditable}
             onFocus={() => setActivePlaceholder('subtitle')}
             onBlur={() => setActivePlaceholder(null)}
             style={{ color: slide.subtitleColor || slide.textColor, fontSize: `${fitSizes.subtitle}px`, textAlign: slide.subtitleAlign || 'center' }}
@@ -1596,6 +1609,7 @@ function GeneralSlideEditor({
               update({ bodyHtml: normalizeGeneralBodyHtml(event.currentTarget.innerHTML) });
               window.requestAnimationFrame(fitPlaceholders);
             }}
+            onKeyDown={selectAllEditable}
             onFocus={() => setActivePlaceholder('body')}
             onBlur={() => setActivePlaceholder(null)}
             data-placeholder="Click to add text"
@@ -3701,6 +3715,11 @@ function TextSlidesPage() {
     updateSelectedSlide({ ...selectedItem.slide, shapeObjects: (selectedItem.slide.shapeObjects || []).map((shape) => selectedShapeIds.includes(shape.id) ? updater(shape) : shape) });
   }
 
+  function setSelectedTextBoxFill(color: string) {
+    if (!selectedItem || !selectedTextIds.length) return;
+    updateSelectedSlide({ ...selectedItem.slide, textObjects: (selectedItem.slide.textObjects || []).map((text) => selectedTextIds.includes(text.id) ? { ...text, style: { ...text.style, backgroundColor: color === 'transparent' ? undefined : color } } : text) });
+  }
+
   function shapeCommand(command: string, value?: string) {
     const selectedObjectIds = [...selectedShapeIds, ...selectedImageIds, ...selectedTextIds];
     if (!selectedItem || (!selectedObjectIds.length && !selectedMediaIds.length && !selectedGroupIds.length)) return;
@@ -3751,12 +3770,12 @@ function TextSlidesPage() {
     if (command === 'delete') { updateSelectedSlide({ ...selectedItem.slide, shapeObjects: (selectedItem.slide.shapeObjects || []).filter((shape) => !selectedShapeIds.includes(shape.id)), imageObjects: (selectedItem.slide.imageObjects || []).filter((image) => !selectedImageIds.includes(image.id)), textObjects: (selectedItem.slide.textObjects || []).filter((text) => !selectedTextIds.includes(text.id)), audioObjects: (selectedItem.slide.audioObjects || []).filter((audio) => !selectedMediaIds.includes(audio.id)), videoObjects: (selectedItem.slide.videoObjects || []).filter((video) => !selectedMediaIds.includes(video.id)) }); setSelectedMediaIds([]); }
     if (command === 'bringToFront' || command === 'sendToBack') {
       const selected = new Set(selectedObjectIds);
-      const ordered = [...(selectedItem.slide.shapeObjects || []), ...(selectedItem.slide.imageObjects || [])].sort((a, b) => a.geometry.zIndex - b.geometry.zIndex);
+      const ordered = [...(selectedItem.slide.shapeObjects || []), ...(selectedItem.slide.imageObjects || []), ...(selectedItem.slide.textObjects || [])].sort((a, b) => a.geometry.zIndex - b.geometry.zIndex);
       const moving = ordered.filter((shape) => selected.has(shape.id));
       const remaining = ordered.filter((shape) => !selected.has(shape.id));
       const next = command === 'bringToFront' ? [...remaining, ...moving] : [...moving, ...remaining];
       const normalized = next.map((object, index) => ({ ...object, geometry: { ...object.geometry, zIndex: index } }));
-      updateSelectedSlide({ ...selectedItem.slide, shapeObjects: normalized.filter((item) => item.type === 'shape') as GeneralSlide['shapeObjects'], imageObjects: normalized.filter((item) => item.type === 'image') as GeneralSlide['imageObjects'] });
+      updateSelectedSlide({ ...selectedItem.slide, shapeObjects: normalized.filter((item) => item.type === 'shape') as GeneralSlide['shapeObjects'], imageObjects: normalized.filter((item) => item.type === 'image') as GeneralSlide['imageObjects'], textObjects: normalized.filter((item) => item.type === 'text') as GeneralSlide['textObjects'] });
     }
   }
 
@@ -3785,7 +3804,8 @@ function TextSlidesPage() {
       document.execCommand('fontSize', false, command === 'increaseFontSize' ? '5' : '2');
       return;
     }
-    document.execCommand(command, false, value);
+    const browserCommand = command === 'textColor' ? 'foreColor' : command;
+    document.execCommand(browserCommand, false, value);
   }
 
   useEffect(() => {
@@ -3838,6 +3858,9 @@ function TextSlidesPage() {
         shapeFill={selectedShape?.style.backgroundColor || '#dbeafe'}
         shapeOutline={selectedShape?.style.outlineColor || '#1e3a8a'}
         shapeOutlineWidth={selectedShape?.style.outlineWidth ?? 2}
+        textBoxFill={selectedTextIds.length ? (selectedItem?.slide.textObjects?.find((text) => selectedTextIds.includes(text.id))?.style.backgroundColor || 'transparent') : ''}
+        onTextBoxFill={setSelectedTextBoxFill}
+        textColor={selectedItem?.slide.textObjects?.find((text) => selectedTextIds.includes(text.id))?.style.color || selectedItem?.slide.textColor || '#24104f'}
         onShapeInsert={setShapeInsertKind}
         onImageInsert={insertImage}
         onAudioInsert={(file) => void insertMedia(file, 'audio')}

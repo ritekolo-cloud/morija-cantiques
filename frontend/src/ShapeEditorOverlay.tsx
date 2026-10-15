@@ -255,7 +255,7 @@ export function ShapeEditorOverlay({ shapes, images = [], texts = [], groups = [
       const target = event.target as HTMLElement;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !target?.isContentEditable) { event.preventDefault(); onUndo?.(); return; }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y' && !target?.isContentEditable) { event.preventDefault(); onRedo?.(); return; }
-      if (!selected.length || target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)) return;
+      if (!selected.length || target?.isContentEditable || target?.closest('[contenteditable="true"]') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)) return;
       if (event.key === 'Escape') choose([]);
       if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); remove(); }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') { event.preventDefault(); duplicate(); }

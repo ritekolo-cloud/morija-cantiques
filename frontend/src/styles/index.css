@@ -139,6 +139,17 @@
 .general-slide-shape-chevron { clip-path: polygon(0 0, 60% 0, 100% 50%, 60% 100%, 0 100%, 40% 50%); }
 .general-slide-text { position: absolute; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; transform-origin: center; }
 .text-bullet { display: inline-block; min-width: 1em; }
+.text-editor-paragraph { position: relative; min-height: 1em; padding-left: 0; }
+.text-editor-paragraph[data-bullet='bullet'],
+.text-editor-paragraph[data-bullet='number'] { padding-left: 1.35em; }
+.text-editor-paragraph[data-bullet='bullet']::before,
+.text-editor-paragraph[data-bullet='number']::before { position: absolute; left: 0; width: 1.1em; text-align: right; color: currentColor; }
+.text-editor-paragraph[data-bullet='bullet']::before { content: '•'; }
+.text-editor-paragraph[data-bullet='number']::before { content: attr(data-bullet-number); }
+.text-editor-paragraph[data-indent='1'] { margin-left: 1.2em; }
+.text-editor-paragraph[data-indent='2'] { margin-left: 2.4em; }
+.text-editor-paragraph[data-indent='3'] { margin-left: 3.6em; }
+.text-slide-paragraph { width: 100%; }
 .text-editor-overlay { position: absolute; inset: 0; z-index: 45; pointer-events: none; }
 .text-editor-overlay .text-object { pointer-events: auto; }
 .text-editor-overlay .text-context-menu { pointer-events: auto; }
