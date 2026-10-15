@@ -72,7 +72,7 @@ import { deleteSlide, duplicateSlide, getVisibleSlideId, insertSlide, reorderSli
 import { ShapeEditorOverlay, type ShapeKind } from './ShapeEditorOverlay';
 import { ImageEditorOverlay } from './ImageEditorOverlay';
 import { TextEditorOverlay } from './TextEditorOverlay';
-import { effectiveTextFontSize, runsToSlideHtml } from './textModel';
+import { effectiveTextFontSize, fitPresentationText, runsToSlideHtml } from './textModel';
 import { alignObjects, alignShapes, arrangeObjects, arrangeShapes, boundsOfObjects, distributeObjects, distributeShapes, flipGroup, groupShapes, rotateGroup, rotateObjects, rotateShapes, ungroup } from './objectManipulationCommands';
 import { authRequest, login as loginAccount, logout as logoutAccount, onSessionExpired, register as registerAccount, restoreSession, type AuthUser } from './authClient';
 import { createCloudPresentation, isRevisionConflict, listCloudPresentations, loadCloudPresentation, updateCloudPresentation, listCloudShares, listCloudVersions, restoreCloudVersion, revokeCloudShare, shareCloudPresentation, updateCloudShare, type CloudPresentationSummary, type CloudShare, type CloudVersion } from './presentationCloud';
@@ -1049,28 +1049,44 @@ function GeneralSlideCanvas({
   onChange?: (slide: GeneralSlide) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const bodyScaleRef = useRef(1);
-  const [bodyScale, setBodyScale] = useState(1);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const subtitleRef = useRef<HTMLParagraphElement | null>(null);
+  const [fitSizes, setFitSizes] = useState({ title: slide.titleFontSize || 44, subtitle: slide.subtitleFontSize || 22, body: slide.fontSize || 30 });
 
   useLayoutEffect(() => {
-    if (!projection) return;
     const body = bodyRef.current;
-    if (!body) return;
-    const fitBody = () => {
-      const availableHeight = body.clientHeight;
-      const naturalHeight = body.scrollHeight;
-      if (!availableHeight || !naturalHeight) return;
-      const nextScale = clampNumber((availableHeight / naturalHeight) * 0.94, 0.18, 1.15);
-      if (Math.abs(nextScale - bodyScaleRef.current) > 0.01) {
-        bodyScaleRef.current = nextScale;
-        setBodyScale(nextScale);
-      }
+    const title = titleRef.current;
+    const subtitle = subtitleRef.current;
+    if (!body && !title && !subtitle) return;
+    const fitElement = (element: HTMLElement | null, preferredSize: number, minimumSize: number, hasContent: boolean) => {
+      if (!element || !hasContent) return { fontSize: preferredSize, overflow: false };
+      const availableHeight = element.clientHeight;
+      const previousSize = element.style.fontSize;
+      const result = fitPresentationText({
+        preferredSize,
+        minimumSize,
+        availableHeight,
+        measureHeight: (fontSize) => {
+          element.style.fontSize = `${fontSize}px`;
+          return element.scrollHeight;
+        },
+      });
+      element.style.fontSize = previousSize;
+      return result;
     };
-    fitBody();
-    const observer = new ResizeObserver(fitBody);
-    observer.observe(body);
+    const fitAll = () => {
+      const next = {
+        title: fitElement(title, slide.titleFontSize || 44, 24, Boolean(slide.title)).fontSize,
+        subtitle: fitElement(subtitle, slide.subtitleFontSize || 22, 16, Boolean(slide.subtitle)).fontSize,
+        body: fitElement(body, slide.fontSize || 30, 18, Boolean(slide.bodyHtml?.replace(/<[^>]*>/g, '').trim())).fontSize,
+      };
+      setFitSizes((previous) => Math.abs(previous.title - next.title) > 0.1 || Math.abs(previous.subtitle - next.subtitle) > 0.1 || Math.abs(previous.body - next.body) > 0.1 ? next : previous);
+    };
+    fitAll();
+    const observer = new ResizeObserver(fitAll);
+    [body, title, subtitle].filter(Boolean).forEach((element) => observer.observe(element as HTMLElement));
     return () => observer.disconnect();
-  }, [projection, slide.bodyHtml, slide.fontSize, slide.bodyWidth, slide.bodyHeight, slide.title, slide.subtitle, slide.titleFontSize, slide.subtitleFontSize, slide.showBody, slide.showTitle, slide.showSubtitle]);
+  }, [slide.bodyHtml, slide.fontSize, slide.bodyWidth, slide.bodyHeight, slide.title, slide.subtitle, slide.titleFontSize, slide.subtitleFontSize, slide.showBody, slide.showTitle, slide.showSubtitle, projection]);
 
   return (
     <article
@@ -1089,9 +1105,9 @@ function GeneralSlideCanvas({
       <svg className="general-slide-drawings" viewBox="0 0 1280 720" aria-hidden="true">{(slide.drawingObjects || []).map((drawing) => <polyline key={drawing.id} points={drawing.points.map((point) => `${point.x},${point.y}`).join(' ')} fill="none" stroke={drawing.style.color} strokeWidth={drawing.style.width} strokeLinecap="round" strokeLinejoin="round" opacity={drawing.style.opacity ?? 1} />)}</svg>
       <MediaSlideObjects audio={slide.audioObjects} video={slide.videoObjects} editable={false} />
       <AdvancedSlideObjects table={slide.tableObjects} chart={slide.chartObjects} diagram={slide.diagramObjects} readonly={projection || !onChange} onTableChange={(tableObjects) => onChange?.({ ...slide, tableObjects })} onChartChange={(chartObjects) => onChange?.({ ...slide, chartObjects })} onDiagramChange={(diagramObjects) => onChange?.({ ...slide, diagramObjects })} />
-      {slide.showTitle !== false && slide.title && <h1 style={{ width: `${slide.titleWidth || 90}%`, minHeight: `${slide.titleHeight || 120}px`, color: slide.titleColor || slide.textColor, textAlign: slide.titleAlign || 'center', transform: `translate(${slide.titleOffsetX || 0}px, ${slide.titleOffsetY || 0}px)` }}>{slide.title}</h1>}
-      {slide.showSubtitle !== false && slide.subtitle && <p className="general-slide-subtitle" style={{ width: `${slide.subtitleWidth || 72}%`, minHeight: `${slide.subtitleHeight || 54}px`, color: slide.subtitleColor || slide.textColor, textAlign: slide.subtitleAlign || 'center', transform: `translate(${slide.subtitleOffsetX || 0}px, ${slide.subtitleOffsetY || 0}px)` }}>{slide.subtitle}</p>}
-      {slide.showBody !== false && <div ref={bodyRef} className="general-slide-body" style={{ width: `${slide.bodyWidth || 100}%`, maxWidth: 'none', minHeight: projection ? 0 : `${slide.bodyHeight || 260}px`, fontSize: `calc(var(--general-slide-font-size) * ${bodyScale})`, textAlign: slide.bodyAlign || 'left', transform: `translate(${slide.bodyOffsetX || 0}px, ${slide.bodyOffsetY || 0}px)` }} dangerouslySetInnerHTML={{ __html: compactGeneralBodyHtml(slide.bodyHtml || '<p></p>') }} />}
+      {slide.showTitle !== false && slide.title && <h1 ref={titleRef} style={{ width: `${slide.titleWidth || 90}%`, height: `${slide.titleHeight || 120}px`, color: slide.titleColor || slide.textColor, textAlign: slide.titleAlign || 'center', fontSize: `${fitSizes.title}px`, transform: `translate(${slide.titleOffsetX || 0}px, ${slide.titleOffsetY || 0}px)` }}>{slide.title}</h1>}
+      {slide.showSubtitle !== false && slide.subtitle && <p ref={subtitleRef} className="general-slide-subtitle" style={{ width: `${slide.subtitleWidth || 72}%`, height: `${slide.subtitleHeight || 54}px`, color: slide.subtitleColor || slide.textColor, textAlign: slide.subtitleAlign || 'center', fontSize: `${fitSizes.subtitle}px`, transform: `translate(${slide.subtitleOffsetX || 0}px, ${slide.subtitleOffsetY || 0}px)` }}>{slide.subtitle}</p>}
+      {slide.showBody !== false && <div ref={bodyRef} className="general-slide-body" style={{ width: `${slide.bodyWidth || 100}%`, maxWidth: 'none', minHeight: projection ? 0 : `${slide.bodyHeight || 260}px`, fontSize: `${fitSizes.body}px`, textAlign: slide.bodyAlign || 'left', transform: `translate(${slide.bodyOffsetX || 0}px, ${slide.bodyOffsetY || 0}px)` }} dangerouslySetInnerHTML={{ __html: compactGeneralBodyHtml(slide.bodyHtml || '<p></p>') }} />}
     </article>
   );
 }
@@ -1232,34 +1248,38 @@ function GeneralSlideEditor({
     title: String(slide.titleFontSize || 44),
     subtitle: String(slide.subtitleFontSize || 22),
   });
-  const editorBodyScaleRef = useRef(1);
-  const [editorBodyScale, setEditorBodyScale] = useState(1);
+  const [fitSizes, setFitSizes] = useState({ title: slide.titleFontSize || 44, subtitle: slide.subtitleFontSize || 22, body: slide.fontSize || 30 });
+  const [fitWarnings, setFitWarnings] = useState({ title: false, subtitle: false, body: false });
   const [activePlaceholder, setActivePlaceholder] = useState<'title' | 'subtitle' | 'body' | null>(null);
 
-  function fitBodyToStage() {
-    const body = editorRef.current;
-    const stage = stageRef.current;
-    if (!body || !stage) return;
-    if (!body.textContent?.trim()) {
-      if (editorBodyScaleRef.current !== 1) {
-        editorBodyScaleRef.current = 1;
-        setEditorBodyScale(1);
-      }
-      return;
-    }
-    const availableHeight = Math.max(72, stage.clientHeight - 170);
-    const previousSize = body.style.fontSize;
-    body.style.fontSize = `${slide.fontSize}px`;
-    const naturalHeight = body.scrollHeight;
-    body.style.fontSize = previousSize;
-    if (!availableHeight || !naturalHeight) return;
-    const nextScale = naturalHeight > availableHeight
-      ? clampNumber((availableHeight / naturalHeight) * 0.96, 0.65, 1)
-      : 1;
-    if (Math.abs(nextScale - editorBodyScaleRef.current) > 0.01) {
-      editorBodyScaleRef.current = nextScale;
-      setEditorBodyScale(nextScale);
-    }
+  function fitPlaceholders() {
+    const elements = { title: titleRef.current, subtitle: subtitleRef.current, body: editorRef.current };
+    const values = {
+      title: { preferredSize: slide.titleFontSize || 44, minimumSize: 24, content: Boolean(slide.title) },
+      subtitle: { preferredSize: slide.subtitleFontSize || 22, minimumSize: 16, content: Boolean(slide.subtitle) },
+      body: { preferredSize: slide.fontSize || 30, minimumSize: 18, content: Boolean(editorRef.current?.textContent?.trim()) },
+    } as const;
+    const nextSizes = { title: values.title.preferredSize, subtitle: values.subtitle.preferredSize, body: values.body.preferredSize };
+    const nextWarnings = { title: false, subtitle: false, body: false };
+    (Object.keys(values) as Array<keyof typeof values>).forEach((key) => {
+      const element = elements[key];
+      if (!element || !values[key].content) return;
+      const previousSize = element.style.fontSize;
+      const result = fitPresentationText({
+        preferredSize: values[key].preferredSize,
+        minimumSize: values[key].minimumSize,
+        availableHeight: element.clientHeight,
+        measureHeight: (fontSize) => {
+          element.style.fontSize = `${fontSize}px`;
+          return element.scrollHeight;
+        },
+      });
+      element.style.fontSize = previousSize;
+      nextSizes[key] = result.fontSize;
+      nextWarnings[key] = result.overflow;
+    });
+    setFitSizes((previous) => Math.abs(previous.title - nextSizes.title) > 0.1 || Math.abs(previous.subtitle - nextSizes.subtitle) > 0.1 || Math.abs(previous.body - nextSizes.body) > 0.1 ? nextSizes : previous);
+    setFitWarnings((previous) => previous.title !== nextWarnings.title || previous.subtitle !== nextWarnings.subtitle || previous.body !== nextWarnings.body ? nextWarnings : previous);
   }
 
   useEffect(() => {
@@ -1306,12 +1326,12 @@ function GeneralSlideEditor({
     const body = editorRef.current;
     const stage = stageRef.current;
     if (!body || !stage) return;
-    fitBodyToStage();
-    const observer = new ResizeObserver(fitBodyToStage);
+    fitPlaceholders();
+    const observer = new ResizeObserver(fitPlaceholders);
     observer.observe(stage);
     observer.observe(body);
     return () => observer.disconnect();
-  }, [slide.id, slide.bodyHtml, slide.fontSize, slide.bodyWidth, slide.bodyHeight, slide.showBody]);
+  }, [slide.id, slide.title, slide.subtitle, slide.bodyHtml, slide.fontSize, slide.titleFontSize, slide.subtitleFontSize, slide.titleWidth, slide.titleHeight, slide.subtitleWidth, slide.subtitleHeight, slide.bodyWidth, slide.bodyHeight, slide.showTitle, slide.showSubtitle, slide.showBody]);
 
   function update(patch: Partial<GeneralSlide>) {
     onChange({ ...slide, ...patch, updatedAt: Date.now() });
@@ -1530,7 +1550,7 @@ function GeneralSlideEditor({
          <ImageEditorOverlay images={slide.imageObjects || []} selectedIds={selectedImageIds} onSelectionChange={onImageSelectionChange || (() => undefined)} onChange={(imageObjects) => onChange({ ...slide, imageObjects })} />
          <TextEditorOverlay texts={slide.textObjects || []} selectedIds={selectedTextIds} insertMode={textInsertMode} onChange={(textObjects) => onChange({ ...slide, textObjects })} onSelectionChange={onTextSelectionChange || (() => undefined)} onInsertComplete={onTextInsertComplete} onHistoryStart={onHistoryStart} onHistoryCommit={onHistoryCommit} onHistoryCancel={onHistoryCancel} />
          <DrawingOverlay drawings={slide.drawingObjects || []} active={drawingMode} color={drawingColor} width={drawingWidth} onChange={(drawingObjects) => onChange({ ...slide, drawingObjects })} />
-        {slide.showTitle !== false && <div className="general-editor-text-box general-editor-title-box" style={{ width: `${boxSizes.titleWidth}%`, minHeight: `${boxSizes.titleHeight}px`, transform: `translate(${dragOffsets.titleX}px, ${dragOffsets.titleY}px)` }}>
+        {slide.showTitle !== false && <div className="general-editor-text-box general-editor-title-box" style={{ width: `${boxSizes.titleWidth}%`, height: `${boxSizes.titleHeight}px`, transform: `translate(${dragOffsets.titleX}px, ${dragOffsets.titleY}px)` }}>
           <span className="general-editor-move-handle" title="Move title box" aria-label="Move title box" onPointerDown={(event) => beginDrag('title', event)}>Move</span>
           <div
             ref={titleRef}
@@ -1541,13 +1561,14 @@ function GeneralSlideEditor({
             onInput={(event) => update({ title: event.currentTarget.textContent || '' })}
             onFocus={() => setActivePlaceholder('title')}
             onBlur={() => setActivePlaceholder(null)}
-            style={{ color: slide.titleColor || slide.textColor, fontSize: `${slide.titleFontSize || 44}px`, textAlign: slide.titleAlign || 'center' }}
+            style={{ color: slide.titleColor || slide.textColor, fontSize: `${fitSizes.title}px`, textAlign: slide.titleAlign || 'center' }}
             role="textbox"
             aria-label="Slide title"
           />
+          {fitWarnings.title && <span className="general-editor-overflow-warning general-editor-overflow-warning-title" role="status">Title is below the readable fitting limit.</span>}
           <span className="general-editor-resize-handle general-editor-resize-bottom-right" title="Resize title box" aria-label="Resize title box" onPointerDown={(event) => beginResize('title', 'bottom-right', event)} />
         </div>}
-        {slide.showSubtitle !== false && <div className="general-editor-text-box general-editor-subtitle-box" style={{ width: `${boxSizes.subtitleWidth}%`, minHeight: `${boxSizes.subtitleHeight}px`, transform: `translate(${dragOffsets.subtitleX}px, ${dragOffsets.subtitleY}px)` }}>
+        {slide.showSubtitle !== false && <div className="general-editor-text-box general-editor-subtitle-box" style={{ width: `${boxSizes.subtitleWidth}%`, height: `${boxSizes.subtitleHeight}px`, transform: `translate(${dragOffsets.subtitleX}px, ${dragOffsets.subtitleY}px)` }}>
           <span className="general-editor-move-handle" title="Move subtitle box" aria-label="Move subtitle box" onPointerDown={(event) => beginDrag('subtitle', event)}>Move</span>
           <div
             ref={subtitleRef}
@@ -1558,7 +1579,7 @@ function GeneralSlideEditor({
             onInput={(event) => update({ subtitle: event.currentTarget.textContent || '' })}
             onFocus={() => setActivePlaceholder('subtitle')}
             onBlur={() => setActivePlaceholder(null)}
-            style={{ color: slide.subtitleColor || slide.textColor, fontSize: `${slide.subtitleFontSize || 22}px`, textAlign: slide.subtitleAlign || 'center' }}
+            style={{ color: slide.subtitleColor || slide.textColor, fontSize: `${fitSizes.subtitle}px`, textAlign: slide.subtitleAlign || 'center' }}
             role="textbox"
             aria-label="Slide subtitle"
           />
@@ -1573,15 +1594,16 @@ function GeneralSlideEditor({
             suppressContentEditableWarning
             onInput={(event) => {
               update({ bodyHtml: normalizeGeneralBodyHtml(event.currentTarget.innerHTML) });
-              window.requestAnimationFrame(fitBodyToStage);
+              window.requestAnimationFrame(fitPlaceholders);
             }}
             onFocus={() => setActivePlaceholder('body')}
             onBlur={() => setActivePlaceholder(null)}
             data-placeholder="Click to add text"
-            style={{ fontSize: `calc(var(--general-slide-font-size) * ${editorBodyScale})` }}
+            style={{ fontSize: `${fitSizes.body}px` }}
             role="textbox"
             aria-label="Slide body"
           />
+          {fitWarnings.body && <span className="general-editor-overflow-warning" role="status">Text exceeds the readable slide limit. Shorten it or continue on another slide.</span>}
           {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((corner) => (
             <span key={corner} className={`general-editor-resize-handle general-editor-resize-${corner}`} title={`Resize body box from ${corner}`} aria-label={`Resize body box from ${corner}`} onPointerDown={(event) => beginResize('body', corner, event)} />
           ))}

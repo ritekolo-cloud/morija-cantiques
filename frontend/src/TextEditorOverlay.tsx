@@ -177,6 +177,8 @@ export function TextEditorOverlay({ texts, selectedIds = [], insertMode = false,
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable="true"]'))) return;
       const key = event.key.toLowerCase();
       if (editingId) {
         return;

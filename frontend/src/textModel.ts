@@ -98,3 +98,39 @@ export function effectiveTextFontSize(object: Pick<TextObject, 'text' | 'style' 
   const availableLines = Math.max(1, Math.floor(object.geometry.height / Math.max(base * 1.2, 1)));
   return Math.max(8, Math.min(base, base * Math.sqrt(availableLines / Math.max(lines, 1))));
 }
+
+export type PresentationTextFit = {
+  fontSize: number;
+  overflow: boolean;
+};
+
+/**
+ * Select the largest readable font size that fits a measured text box.
+ * The caller supplies the real DOM measurement so wrapping, font metrics,
+ * line-height, and the responsive slide dimensions are all included.
+ */
+export function fitPresentationText({
+  preferredSize,
+  minimumSize,
+  availableHeight,
+  measureHeight,
+}: {
+  preferredSize: number;
+  minimumSize: number;
+  availableHeight: number;
+  measureHeight: (fontSize: number) => number;
+}): PresentationTextFit {
+  const preferred = Math.max(minimumSize, preferredSize);
+  if (!availableHeight || !measureHeight(preferred)) return { fontSize: preferred, overflow: false };
+  if (measureHeight(preferred) <= availableHeight) return { fontSize: preferred, overflow: false };
+  if (measureHeight(minimumSize) > availableHeight) return { fontSize: minimumSize, overflow: true };
+
+  let low = minimumSize;
+  let high = preferred;
+  for (let iteration = 0; iteration < 12; iteration += 1) {
+    const middle = (low + high) / 2;
+    if (measureHeight(middle) <= availableHeight) low = middle;
+    else high = middle;
+  }
+  return { fontSize: Math.floor(low * 10) / 10, overflow: false };
+}
