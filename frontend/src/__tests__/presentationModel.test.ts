@@ -19,7 +19,7 @@ import {
   type TextSlideSource,
 } from '../presentationModel';
 import { resolveSelectedSlideId } from '../presentationStore';
-import { duplicateSlide, nextSlideSelection, reorderSlides } from '../presentationCommands';
+import { deleteSlides, duplicateSlide, nextSlideSelection, reorderSlides } from '../presentationCommands';
 
 const geometry = (x: number, y: number, zIndex: number) => ({ x, y, width: 120, height: 60, rotation: 0, zIndex });
 
@@ -44,6 +44,22 @@ describe('slide navigator selection', () => {
     expect(nextSlideSelection(ids, ['slide-2'], 'slide-4', { additive: true })).toEqual(['slide-2', 'slide-4']);
     expect(nextSlideSelection(ids, ['slide-2', 'slide-4'], 'slide-2', { additive: true })).toEqual(['slide-4']);
     expect(nextSlideSelection(ids, ['slide-2'], 'slide-4', { rangeAnchor: 'slide-2' })).toEqual(['slide-2', 'slide-3', 'slide-4']);
+  });
+});
+
+describe('slide navigator deletion', () => {
+  const document = {
+    id: 'presentation-1',
+    metadata: { title: 'Test' },
+    slides: ['slide-1', 'slide-2', 'slide-3'].map((id) => ({ id, objects: [], background: { color: '#fff' } })),
+  } as any;
+
+  it('deletes exactly the selected slides and preserves order', () => {
+    expect(deleteSlides(document, ['slide-1', 'slide-3']).slides.map((slide) => slide.id)).toEqual(['slide-2']);
+  });
+
+  it('retains one slide when every slide is selected', () => {
+    expect(deleteSlides(document, ['slide-1', 'slide-2', 'slide-3']).slides.map((slide) => slide.id)).toEqual(['slide-1']);
   });
 });
 

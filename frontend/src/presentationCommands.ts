@@ -37,6 +37,15 @@ export function deleteSlide(document: PresentationDocument, slideId: string): Pr
   return { ...document, slides: document.slides.filter((slide) => slide.id !== slideId) };
 }
 
+export function deleteSlides(document: PresentationDocument, slideIds: string[]): PresentationDocument {
+  if (document.slides.length <= 1 || slideIds.length === 0) return document;
+  const selected = new Set(slideIds);
+  const remaining = document.slides.filter((slide) => !selected.has(slide.id));
+  if (remaining.length > 0) return { ...document, slides: remaining };
+  // A presentation must retain one slide when every slide is selected.
+  return { ...document, slides: [document.slides[0]] };
+}
+
 export function reorderSlides(document: PresentationDocument, fromIndex: number, toIndex: number): PresentationDocument {
   if (fromIndex < 0 || toIndex < 0 || fromIndex >= document.slides.length || toIndex >= document.slides.length || fromIndex === toIndex) return document;
   const slides = [...document.slides];

@@ -68,7 +68,7 @@ import { MEDIA_MAX_BYTES, savePresentationAsset, supportedMediaType } from './pr
 import { exportPresentationToPptx, getPptxExportLimitations, importPptx } from './pptxInterop';
 import { usePresentationDocument } from './presentationStore';
 import { createStableId, fitPresentationZoomPercent, isValidHyperlink, presentationSlideToTextSlide, serializePresentationDocument, type AudioObject, type VideoObject, type DrawingObject, type PresentationDocument, type SlideAnimation, type SlideComment, type SlideLayout, type SupportedTransitionType } from './presentationModel';
-import { deleteSlide, duplicateSlide, getVisibleSlideId, insertSlide, nextSlideSelection, reorderSlides, updateSlide } from './presentationCommands';
+import { deleteSlide, deleteSlides, duplicateSlide, getVisibleSlideId, insertSlide, nextSlideSelection, reorderSlides, updateSlide } from './presentationCommands';
 import { ShapeEditorOverlay, type ShapeKind } from './ShapeEditorOverlay';
 import { ImageEditorOverlay } from './ImageEditorOverlay';
 import { TextEditorOverlay } from './TextEditorOverlay';
@@ -1578,7 +1578,7 @@ function GeneralSlideEditor({
          <TextEditorOverlay texts={slide.textObjects || []} selectedIds={selectedTextIds} insertMode={textInsertMode} onChange={(textObjects) => onChange({ ...slide, textObjects })} onSelectionChange={onTextSelectionChange || (() => undefined)} onInsertComplete={onTextInsertComplete} onHistoryStart={onHistoryStart} onHistoryCommit={onHistoryCommit} onHistoryCancel={onHistoryCancel} />
          <DrawingOverlay drawings={slide.drawingObjects || []} active={drawingMode} color={drawingColor} width={drawingWidth} onChange={(drawingObjects) => onChange({ ...slide, drawingObjects })} />
         {slide.showTitle !== false && <div className="general-editor-text-box general-editor-title-box" style={{ width: `${boxSizes.titleWidth}%`, height: `${boxSizes.titleHeight}px`, transform: `translate(${dragOffsets.titleX}px, ${dragOffsets.titleY}px)` }}>
-          <span className="general-editor-move-handle" title="Move title box" aria-label="Move title box" onPointerDown={(event) => beginDrag('title', event)}>Move</span>
+          <span className="general-editor-move-handle" title="Move title box" aria-label="Move title box" onPointerDown={(event) => beginDrag('title', event)} />
           <div
             ref={titleRef}
             className={`general-editor-placeholder ${activePlaceholder === 'title' ? 'is-editing' : ''}`}
@@ -1597,7 +1597,7 @@ function GeneralSlideEditor({
           <span className="general-editor-resize-handle general-editor-resize-bottom-right" title="Resize title box" aria-label="Resize title box" onPointerDown={(event) => beginResize('title', 'bottom-right', event)} />
         </div>}
         {slide.showSubtitle !== false && <div className="general-editor-text-box general-editor-subtitle-box" style={{ width: `${boxSizes.subtitleWidth}%`, height: `${boxSizes.subtitleHeight}px`, transform: `translate(${dragOffsets.subtitleX}px, ${dragOffsets.subtitleY}px)` }}>
-          <span className="general-editor-move-handle" title="Move subtitle box" aria-label="Move subtitle box" onPointerDown={(event) => beginDrag('subtitle', event)}>Move</span>
+          <span className="general-editor-move-handle" title="Move subtitle box" aria-label="Move subtitle box" onPointerDown={(event) => beginDrag('subtitle', event)} />
           <div
             ref={subtitleRef}
             className={`general-editor-placeholder ${activePlaceholder === 'subtitle' ? 'is-editing' : ''}`}
@@ -1615,7 +1615,7 @@ function GeneralSlideEditor({
           <span className="general-editor-resize-handle general-editor-resize-bottom-right" title="Resize subtitle box" aria-label="Resize subtitle box" onPointerDown={(event) => beginResize('subtitle', 'bottom-right', event)} />
         </div>}
         {slide.showBody !== false && <div className="general-editor-body-box" style={{ width: `${boxSizes.bodyWidth}%`, minHeight: `${boxSizes.bodyHeight}px`, transform: `translate(${dragOffsets.bodyX}px, ${dragOffsets.bodyY}px)` }}>
-          <span className="general-editor-move-handle" title="Move body box" aria-label="Move body box" onPointerDown={(event) => beginDrag('body', event)}>Move</span>
+          <span className="general-editor-move-handle" title="Move body box" aria-label="Move body box" onPointerDown={(event) => beginDrag('body', event)} />
           <div
             ref={editorRef}
             className={`general-editor-content ${activePlaceholder === 'body' ? 'is-editing' : ''}`}
@@ -3538,9 +3538,17 @@ function TextSlidesPage() {
   }
 
   function handleSlideListKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') return;
+    const key = event.key.toLowerCase();
     const target = event.target instanceof HTMLElement ? event.target : null;
-    if (target?.closest('[contenteditable="true"], input, textarea, select')) return;
+    const editingText = target?.closest('[contenteditable="true"], input, textarea, select');
+    if ((key === 'delete' || key === 'backspace') && selectedSlideIds.length > 0 && !editingText) {
+      event.preventDefault();
+      event.stopPropagation();
+      removeSelectedSlides();
+      return;
+    }
+    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') return;
+    if (editingText) return;
     event.preventDefault();
     event.stopPropagation();
     setSelectedSlideIds(slideIds);
@@ -3576,6 +3584,26 @@ function TextSlidesPage() {
     const next = editor.document.slides.filter((slide) => slide.id !== editor.selectedSlideId);
     editor.updateDocument((current) => deleteSlide(current, editor.selectedSlideId || ''));
     editor.selectSlide(next[0]?.id ?? null);
+    if (next[0]?.id) {
+      setSelectedSlideIds([next[0].id]);
+      slideSelectionAnchorRef.current = next[0].id;
+    }
+  }
+
+  function removeSelectedSlides() {
+    const selected = new Set(selectedSlideIds);
+    const slides = editor.document.slides;
+    if (slides.length <= 1 || selected.size === 0) return;
+    const activeIndex = Math.max(0, slides.findIndex((slide) => slide.id === editor.selectedSlideId));
+    const remaining = slides.filter((slide) => !selected.has(slide.id));
+    const nextSlides = remaining.length > 0 ? remaining : [slides[0]];
+    const nextActive = nextSlides.find((slide) => slide.id === editor.selectedSlideId)
+      || nextSlides.find((slide) => slides.indexOf(slide) > activeIndex)
+      || nextSlides[nextSlides.length - 1];
+    editor.updateDocument((current) => deleteSlides(current, selectedSlideIds));
+    editor.selectSlide(nextActive?.id ?? null);
+    setSelectedSlideIds(nextActive?.id ? [nextActive.id] : []);
+    slideSelectionAnchorRef.current = nextActive?.id ?? null;
   }
 
   function moveSlide(fromIndex: number, toIndex: number) {
